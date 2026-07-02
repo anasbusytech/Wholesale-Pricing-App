@@ -1,0 +1,26 @@
+api_version = "2026-04"
+
+[[extensions]]
+name = "Wholesale Discount"
+handle = "wholesale-discount"
+
+uid = "47ff8d8e-d214-6a35-d95f-b26f4b9e8cb6202ffc9d"
+type = "function"
+
+description = "Wholesale quantity pricing"
+
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart-lines-discounts-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
+
+[extensions.ui]
+handle = "discount-settings"
+
+[extensions.ui.paths]
+create = "/"
+details = "/"
