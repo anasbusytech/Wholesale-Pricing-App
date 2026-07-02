@@ -2,7 +2,7 @@
 
 client_id = "adf7e6fa0bd93a8b487b435caf004fb9"
 name = "wholesale-pricing-app"
-application_url = "https://example.com"
+application_url = "https://wholesale-pricing-app-xi.vercel.app"
 embedded = true
 
 [build]
@@ -15,7 +15,7 @@ api_version = "2026-07"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "write_products,write_metaobjects,write_metaobject_definitions,write_discounts,read_discounts"
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://wholesale-pricing-app-xi.vercel.app/api/auth" ]
 
 [app_proxy]
 url = "/api/wholesale"

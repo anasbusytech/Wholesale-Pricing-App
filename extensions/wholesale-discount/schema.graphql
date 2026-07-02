@@ -3552,7 +3552,7 @@ input HttpRequest {
   policy: HttpRequestPolicy!
 
   """
-  The HTTP url (eg.: https://example.com). The scheme needs to be HTTPS.
+  The HTTP url (eg.: https://wholesale-pricing-app-xi.vercel.app). The scheme needs to be HTTPS.
   """
   url: URL!
 }
