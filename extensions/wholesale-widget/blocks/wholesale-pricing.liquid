@@ -15,6 +15,7 @@
   </div>
 
 </div>
+
 <script>
 window.wholesaleCustomerTags =
 {{ customer.tags | json }};
@@ -26,7 +27,8 @@ true
 false
 {% endif %};
 </script>
-<script  defer>
+
+<script defer>
 document.addEventListener("DOMContentLoaded", async () => {
 
   const productId =
@@ -65,24 +67,118 @@ document.addEventListener("DOMContentLoaded", async () => {
   const data = await response.json();
   const rule = data.rule;
   const widgetConfig =
-    rule.widgetConfig || {};
+    rule?.widgetConfig || {};
   const heading =
     document.getElementById(
       "wholesale-widget-heading"
     );
 
-  if (heading) {
+  const widget = document.querySelector(".wholesale-pricing-widget");
 
+  // Check if this is a simple product (no variants) OR first load
+  const isSimpleProduct = !document.querySelector('[name="id"]')?.options;
+
+  // For simple products with no rule, hide the entire widget
+  if (isSimpleProduct && !data.rule) {
+    if (widget) {
+      widget.style.display = "none";
+    }
+    return;
+  }
+
+  // For simple products with rule, show normally
+  if (isSimpleProduct && data.rule) {
+    if (widget) {
+      widget.style.display = "";
+    }
+  }
+
+  if (heading) {
     heading.textContent =
       widgetConfig.heading ||
       "Wholesale Pricing";
   }    
-  const widget = document.querySelector(".wholesale-pricing-widget");  
 
   if (!data.rule) {
+    // This is for variants with no rule - show message with dropdown
     container.innerHTML =
-      "<p>No wholesale pricing available.</p>";
+      "<p>No wholesale pricing available for this variant.</p>";
+    
+    // Create dropdown for variants without rule
+    const quantities = [
+      1,2,3,4,5,
+      10,15,20,25,30,
+      40,50,75,100
+    ];
+
+    const dropdown =
+      document.createElement("select");
+
+    dropdown.id =
+      "wholesale-qty-dropdown";
+
+    quantities.forEach((qty) => {
+
+      const option =
+        document.createElement("option");
+
+      option.value = qty;
+      option.textContent = qty;
+
+      dropdown.appendChild(option);
+
+    });
+
+    container.appendChild(dropdown);
+
+    dropdown.value = "1";
+    qtyInput.value = "1";
+
+    dropdown.addEventListener(
+      "change",
+      () => {
+
+        qtyInput.value =
+          dropdown.value;
+
+        qtyInput.dispatchEvent(
+          new Event("input", {
+            bubbles: true,
+          })
+        );
+
+      }
+    );
+
+    // Show the quantity input for variants without rule
+    const qtyWrapper =
+      qtyInput.closest(
+        '.product-form__quantity'
+      ) ||
+      qtyInput.closest(
+        '.quantity'
+      );
+
+    if (qtyWrapper) {
+      qtyWrapper.style.display = "";
+    } else {
+      qtyInput.style.display = "";
+    }
+
+    // Clear live price
+    livePrice.innerHTML = "";
+
+    // Reset regular price
+    if (regularPrice && originalPriceText) {
+      regularPrice.textContent = originalPriceText;
+    }
+
     return;
+  }
+
+  // If we have a rule, show the widget
+  if (widget) {
+    widget.style.display = "";
   }
 
   let slabs = data.rule.slabs;
@@ -184,6 +280,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       }
     );
+  } else {
+    // Show quantity input if no dropdown in rule
+    const qtyWrapper =
+      qtyInput.closest(
+        '.product-form__quantity'
+      ) ||
+      qtyInput.closest(
+        '.quantity'
+      );
+
+    if (qtyWrapper) {
+      qtyWrapper.style.display = "";
+    } else {
+      qtyInput.style.display = "";
+    }
   }
 
   if (widget) {
@@ -373,7 +484,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.createElement("select");
 
       dropdown.id =
-        "wholesale-qty-dropdowns";
+        "wholesale-qty-dropdown";
 
       quantities.forEach((qty) => {
 
@@ -399,10 +510,34 @@ document.addEventListener("DOMContentLoaded", async () => {
           qtyInput.value =
             dropdown.value;
 
-
+          qtyInput.dispatchEvent(
+            new Event("input", {
+              bubbles: true,
+            })
+          );
 
         }
       );
+
+      // Show the quantity input for variants without rule
+      const qtyWrapper =
+        qtyInput.closest(
+          '.product-form__quantity'
+        ) ||
+        qtyInput.closest(
+          '.quantity'
+        );
+
+      if (qtyWrapper) {
+        qtyWrapper.style.display = "";
+      } else {
+        qtyInput.style.display = "";
+      }
+
+      // Reset regular price
+      if (regularPrice && originalPriceText) {
+        regularPrice.textContent = originalPriceText;
+      }
 
       return;
     }
