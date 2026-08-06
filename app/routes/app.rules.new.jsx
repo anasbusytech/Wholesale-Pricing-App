@@ -58,12 +58,15 @@ export async function action({ request }) {
 
   const quantityDropdownEnabled =
     formData.get("quantityDropdownEnabled") === "true";
-  const dropdownValues =
-    formData
-      .get("dropdownValues")
-      ?.split(",")
-      .map(v => Number(v.trim()))
-      .filter(Boolean) || [];
+  const dropdownValues = [
+    ...new Set(
+      formData
+        .get("dropdownValues")
+        ?.split(",")
+        .map(v => Number(v.trim()))
+        .filter(Boolean)
+    ),
+  ];
   const products = JSON.parse(
     formData.get("products") || "[]"
   );
