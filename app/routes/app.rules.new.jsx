@@ -196,7 +196,7 @@ export default function CreateRulePage() {
 
   const [quantityDropdownEnabled, setQuantityDropdownEnabled] = useState(false);
 
-  const [dropdownValues, setDropdownValues] = useState("5,10,20,50");
+  const [dropdownValues, setDropdownValues] = useState(["5,10,20,50"]);
   const [widgetHeading, setWidgetHeading] =
     useState("Wholesale Pricing");
 
@@ -242,7 +242,36 @@ export default function CreateRulePage() {
       },
     ]);
   }
+  function addDropdownValue() {
 
+    setDropdownValues([
+      ...dropdownValues,
+      "",
+    ]);
+
+  }
+
+  function updateDropdownValue(index, value) {
+
+    const updated = [...dropdownValues];
+
+    updated[index] = value;
+
+    setDropdownValues(updated);
+
+  }
+
+  function removeDropdownValue(index) {
+
+    setDropdownValues(
+
+      dropdownValues.filter(
+        (_, i) => i !== index
+      )
+
+    );
+
+  }
   async function openProductPicker() {
 
     const selected =
@@ -365,7 +394,7 @@ export default function CreateRulePage() {
                 <input
                   type="hidden"
                   name="dropdownValues"
-                  value={dropdownValues}
+                  value={dropdownValues.join(",")}
                 />
                 <Checkbox
                   label="Enable Rule"
@@ -412,13 +441,67 @@ export default function CreateRulePage() {
 
                   {quantityDropdownEnabled && (
 
-                    <TextField
-                      label="Dropdown Values"
-                      helpText="Example: 5,10,20,50"
-                      value={dropdownValues}
-                      onChange={setDropdownValues}
-                      autoComplete="off"
-                    />
+                    <BlockStack gap="200">
+
+                      <Text
+                        as="h3"
+                        variant="headingSm"
+                      >
+                        Dropdown Values
+                      </Text>
+
+                      {dropdownValues.map(
+                        (value, index) => (
+
+                          <InlineStack
+                            key={index}
+                            gap="200"
+                            align="space-between"
+                          >
+
+                            <div
+                              style={{
+                                flex: 1,
+                              }}
+                            >
+
+                              <TextField
+                                label={`Value ${index + 1}`}
+                                labelHidden
+                                type="number"
+                                value={value}
+                                autoComplete="off"
+                                onChange={(val) =>
+                                  updateDropdownValue(
+                                    index,
+                                    val
+                                  )
+                                }
+                              />
+
+                            </div>
+
+                            <Button
+                              destructive
+                              onClick={() =>
+                                removeDropdownValue(index)
+                              }
+                            >
+                              Delete
+                            </Button>
+
+                          </InlineStack>
+
+                        )
+                      )}
+
+                      <Button
+                        onClick={addDropdownValue}
+                      >
+                        Add Value
+                      </Button>
+
+                    </BlockStack>
 
                   )}
 
