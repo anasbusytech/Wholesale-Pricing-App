@@ -22,18 +22,34 @@ import {
   BlockStack,
   Checkbox,
   InlineStack,
+  Banner,
 } from "@shopify/polaris";
 
 import {
   Form,
   useNavigate,
+  useLoaderData,
 } from "react-router";
 
 import { useState } from "react";
 import { redirect } from "react-router";
 
 import prisma from "../db.server";
+export async function loader() {
 
+  const rules =
+    await prisma.wholesaleRule.findMany({
+      include: {
+        products: true,
+      },
+    });
+
+  return {
+    usedVariantIds: rules.flatMap(rule =>
+      rule.products.map(product => product.variantId)
+    ),
+  };
+}
 export async function action({ request }) {
 
   const formData = await request.formData();
@@ -265,7 +281,11 @@ function SortableDropdownItem({
 export default function CreateRulePage() {
 
   const navigate = useNavigate();
-
+  const { usedVariantIds } =
+    useLoaderData();
+  const [skippedCount,
+    setSkippedCount] =
+  useState(0);    
   const [name, setName] = useState("");
 
   const [enabled, setEnabled] =
@@ -326,7 +346,7 @@ function handleDragEnd(event) {
     dropdownValues.findIndex(
       item => item.id === over.id
     );
-    
+
   setDropdownValues(
     arrayMove(
       dropdownValues,
@@ -391,25 +411,39 @@ function handleDragEnd(event) {
 
     if (!selected) return;
 
-    const formatted = [];
+      const formatted = [];
 
-    selected.forEach((product) => {
+      let skipped = 0;
 
-      product.variants.forEach((variant) => {
+      selected.forEach((product) => {
 
-        formatted.push({
-          productId: product.id,
-          variantId: variant.id,
-          title: `${product.title} - ${variant.title}`,
+        product.variants.forEach((variant) => {
+
+          if (
+            usedVariantIds.includes(variant.id)
+          ) {
+
+            skipped++;
+
+            return;
+          }
+
+          formatted.push({
+            productId: product.id,
+            variantId: variant.id,
+            title: `${product.title} - ${variant.title}`,
+          });
+
         });
 
       });
 
-    });
+      setSkippedCount(skipped);
 
-    setProducts(formatted);
-
-    setProducts(formatted);
+      setProducts([
+        ...products,
+        ...formatted,
+      ]);
   }
 
   return (
@@ -520,7 +554,19 @@ function handleDragEnd(event) {
                   >
                     Products
                   </Text>
+                  {skippedCount > 0 && (
 
+                    <Banner
+                      tone="warning"
+                    >
+
+                      {skippedCount}
+                      {" "}
+                      variant(s) were skipped because they are already used in another wholesale rule.
+
+                    </Banner>
+
+                  )}
                   <Button
                     onClick={openProductPicker}
                   >
