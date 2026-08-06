@@ -415,15 +415,19 @@ function handleDragEnd(event) {
   }
   async function openProductPicker() {
 
-    const selected =
-      await shopify.resourcePicker({
-        type: "product",
-        multiple: true,
-        filter: {
-          variants: true,
-        },        
-      });
+  const selected =
+    await shopify.resourcePicker({
+      type: "product",
+      multiple: true,
 
+      selectionIds: products.map(product => ({
+        id: product.productId
+      })),
+
+      filter: {
+        variants: true,
+      },
+    });
     if (!selected) return;
 
       const formatted = [];
@@ -455,21 +459,29 @@ function handleDragEnd(event) {
 
       setSkippedCount(skipped);
 
-      const existingIds = new Set(
-        products.map(product => product.variantId)
-      );
+      const merged = [
+        ...products,
+        ...formatted,
+      ];
 
-      const uniqueProducts =
-        formatted.filter(
-          product =>
-            !existingIds.has(product.variantId)
-        );
+      const uniqueProducts = [];
+
+      const ids = new Set();
+
+      merged.forEach(product => {
+
+        if (ids.has(product.variantId)) return;
+
+        ids.add(product.variantId);
+
+        uniqueProducts.push(product);
+
+      });
 
       setProducts(
-        [...products, ...uniqueProducts]
-          .sort((a, b) =>
-            a.title.localeCompare(b.title)
-          )
+        uniqueProducts.sort((a, b) =>
+          a.title.localeCompare(b.title)
+        )
       );
   }
 
@@ -637,11 +649,19 @@ function handleDragEnd(event) {
                         <Button
                           tone="critical"
                           size="slim"
-                          onClick={() =>
-                            removeProduct(
-                              product.variantId
-                            )
-                          }
+                          onClick={() => {
+
+                            if (
+                              window.confirm(
+                                "Are you sure you want to remove this variant?"
+                              )
+                            ) {
+
+                              removeProduct(product.variantId);
+
+                            }
+
+                          }}
                         >
                           Remove
                         </Button>
