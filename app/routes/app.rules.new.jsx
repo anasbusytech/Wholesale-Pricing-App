@@ -273,12 +273,11 @@ export default function CreateRulePage() {
 
   const [quantityDropdownEnabled, setQuantityDropdownEnabled] = useState(false);
 
-  const [dropdownValues, setDropdownValues] =
-  useState([
-    "5",
-    "10",
-    "20",
-    "50",
+  const [dropdownValues, setDropdownValues] = useState([
+    { id: crypto.randomUUID(), value: "5" },
+    { id: crypto.randomUUID(), value: "10" },
+    { id: crypto.randomUUID(), value: "20" },
+    { id: crypto.randomUUID(), value: "50" },
   ]);
   const [widgetHeading, setWidgetHeading] =
     useState("Wholesale Pricing");
@@ -319,17 +318,15 @@ function handleDragEnd(event) {
   if (!over || active.id === over.id) return;
 
   const oldIndex =
-  dropdownValues.findIndex(
-    (value, index) =>
-      `${value}-${index}` === active.id
-  );
+    dropdownValues.findIndex(
+      item => item.id === active.id
+    );
 
   const newIndex =
-  dropdownValues.findIndex(
-    (value, index) =>
-      `${value}-${index}` === over.id
-  );
-
+    dropdownValues.findIndex(
+      item => item.id === over.id
+    );
+    
   setDropdownValues(
     arrayMove(
       dropdownValues,
@@ -353,16 +350,18 @@ function handleDragEnd(event) {
 
     setDropdownValues([
       ...dropdownValues,
-      "",
+      {
+        id: crypto.randomUUID(),
+        value: "",
+      },
     ]);
-
   }
 
   function updateDropdownValue(index, value) {
 
     const updated = [...dropdownValues];
 
-    updated[index] = value;
+    updated[index].value = value;
 
     setDropdownValues(updated);
 
@@ -501,7 +500,9 @@ function handleDragEnd(event) {
                 <input
                   type="hidden"
                   name="dropdownValues"
-                  value={dropdownValues.join(",")}
+                  value={dropdownValues
+                  .map(item => item.value)
+                  .join(",")}
                 />
                 <Checkbox
                   label="Enable Rule"
@@ -568,12 +569,12 @@ function handleDragEnd(event) {
                           )}
                           strategy={verticalListSortingStrategy}
                         >
-                          {dropdownValues.map((value, index) => (
+                          {dropdownValues.map((item, index) => (
 
                             <SortableDropdownItem
-                              key={`${value}-${index}`}
-                              id={`${value}-${index}`}
-                              value={value}
+                              key={item.id}
+                              id={item.id}
+                              value={item.value}
                               index={index}
                               updateDropdownValue={updateDropdownValue}
                               removeDropdownValue={removeDropdownValue}
