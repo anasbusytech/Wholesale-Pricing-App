@@ -398,6 +398,21 @@ function handleDragEnd(event) {
     );
 
   }
+  function removeProduct(
+    variantId
+  ) {
+
+    setProducts(
+
+      products.filter(
+        product =>
+          product.variantId !==
+          variantId
+      )
+
+    );
+
+  }
   async function openProductPicker() {
 
     const selected =
@@ -440,10 +455,22 @@ function handleDragEnd(event) {
 
       setSkippedCount(skipped);
 
-      setProducts([
-        ...products,
-        ...formatted,
-      ]);
+      const existingIds = new Set(
+        products.map(product => product.variantId)
+      );
+
+      const uniqueProducts =
+        formatted.filter(
+          product =>
+            !existingIds.has(product.variantId)
+        );
+
+      setProducts(
+        [...products, ...uniqueProducts]
+          .sort((a, b) =>
+            a.title.localeCompare(b.title)
+          )
+      );
   }
 
   return (
@@ -554,6 +581,16 @@ function handleDragEnd(event) {
                   >
                     Products
                   </Text>
+                  <Text
+                    as="p"
+                    tone="subdued"
+                  >
+
+                    Selected Variants:
+                    {" "}
+                    {products.length}
+
+                  </Text>                
                   {skippedCount > 0 && (
 
                     <Banner
@@ -572,13 +609,45 @@ function handleDragEnd(event) {
                   >
                     Select Products
                   </Button>
+                  {products.length === 0 && (
 
+                    <Text
+                      as="p"
+                      tone="subdued"
+                    >
+
+                      No variants selected.
+
+                    </Text>
+
+                  )}
                   {products.map((product) => (
 
                     <Card key={product.variantId}>
-                      <Text as="p">
-                        {product.title}
-                      </Text>
+
+                      <InlineStack
+                        align="space-between"
+                        blockAlign="center"
+                      >
+
+                        <Text as="p">
+                          {product.title}
+                        </Text>
+
+                        <Button
+                          tone="critical"
+                          size="slim"
+                          onClick={() =>
+                            removeProduct(
+                              product.variantId
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+
+                      </InlineStack>
+
                     </Card>
 
                   ))}
