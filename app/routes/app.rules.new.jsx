@@ -24,7 +24,6 @@ import {
   InlineStack,
   Banner,
 } from "@shopify/polaris";
-
 import {
   Form,
   useNavigate,
@@ -332,29 +331,7 @@ export default function CreateRulePage() {
 
     setSlabs(updated);
   }
-function handleDragEnd(event) {
-  const { active, over } = event;
 
-  if (!over || active.id === over.id) return;
-
-  const oldIndex =
-    dropdownValues.findIndex(
-      item => item.id === active.id
-    );
-
-  const newIndex =
-    dropdownValues.findIndex(
-      item => item.id === over.id
-    );
-
-  setDropdownValues(
-    arrayMove(
-      dropdownValues,
-      oldIndex,
-      newIndex
-    )
-  );
-}
   function addSlab() {
 
     setSlabs([
@@ -366,6 +343,29 @@ function handleDragEnd(event) {
       },
     ]);
   }
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex =
+      dropdownValues.findIndex(
+        item => item.id === active.id
+      );
+
+    const newIndex =
+      dropdownValues.findIndex(
+        item => item.id === over.id
+      );
+
+    setDropdownValues(
+      arrayMove(
+        dropdownValues,
+        oldIndex,
+        newIndex
+      )
+    );
+  }  
   function addDropdownValue() {
 
     setDropdownValues([
@@ -698,10 +698,7 @@ function handleDragEnd(event) {
                         onDragEnd={handleDragEnd}
                       >
                         <SortableContext
-                          items={dropdownValues.map(
-                            (value, index) =>
-                              `${value}-${index}`
-                          )}
+                          items={dropdownValues.map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
                           {dropdownValues.map((item, index) => (
