@@ -117,10 +117,13 @@ export async function loader({ request, params }) {
     rule.products.map(product => product.variantId)
   );
 
-  return { 
-    rule,
+  return {
+    rule: {
+      ...rule,
+      products: productTitles,
+    },
     usedVariantIds,
-    currentVariantIds: rule.products.map(p => p.variantId)
+    currentVariantIds: rule.products.map(p => p.variantId),
   };
 }
 
@@ -142,6 +145,35 @@ export async function action({ request, params }) {
 
     if (rule?.discountId) {
       const { admin } = await authenticate.admin(request);
+      const productTitles = await Promise.all(
+        rule.products.map(async (item) => {
+          const response = await admin.graphql(
+            `#graphql
+            query($id: ID!) {
+              productVariant(id: $id) {
+                id
+                title
+                product {
+                  title
+                }
+              }
+            }
+            `,
+            {
+              variables: {
+                id: item.variantId,
+              },
+            }
+          );
+
+          const json = await response.json();
+
+          return {
+            ...item,
+            title: `${json.data.productVariant.product.title} - ${json.data.productVariant.title}`,
+          };
+        })
+      );      
       await admin.graphql(`
         mutation discountAutomaticDelete($id: ID!) {
           discountAutomaticDelete(id: $id) {
@@ -426,7 +458,7 @@ export default function EditRulePage() {
     rule.products.map((p) => ({
       productId: p.productId,
       variantId: p.variantId,
-      title: p.variantId, // We'll try to fetch titles later
+      title: p.title,
     }))
   );
 
