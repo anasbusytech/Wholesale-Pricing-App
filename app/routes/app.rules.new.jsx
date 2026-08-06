@@ -1,5 +1,17 @@
 import { authenticate } from "../shopify.server";
+import {
+  DndContext,
+  closestCenter,
+} from "@dnd-kit/core";
 
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
 import {
   Page,
   Layout,
@@ -184,7 +196,69 @@ export async function action({ request }) {
   }
   return redirect("/app/rules");
 }
+function SortableDropdownItem({
+  id,
+  value,
+  index,
+  updateDropdownValue,
+  removeDropdownValue,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id });
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "10px",
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: "grab",
+          padding: "8px",
+          userSelect: "none",
+        }}
+      >
+        ☰
+      </div>
+
+      <div style={{ flex: 1 }}>
+        <TextField
+          label={`Value ${index + 1}`}
+          labelHidden
+          type="number"
+          value={value}
+          autoComplete="off"
+          onChange={(val) =>
+            updateDropdownValue(index, val)
+          }
+        />
+      </div>
+
+      <Button
+        destructive
+        onClick={() => removeDropdownValue(index)}
+      >
+        Delete
+      </Button>
+    </div>
+  );
+}
 export default function CreateRulePage() {
 
   const navigate = useNavigate();
@@ -196,7 +270,13 @@ export default function CreateRulePage() {
 
   const [quantityDropdownEnabled, setQuantityDropdownEnabled] = useState(false);
 
-  const [dropdownValues, setDropdownValues] = useState(["5,10,20,50"]);
+  const [dropdownValues, setDropdownValues] =
+  useState([
+    "5",
+    "10",
+    "20",
+    "50",
+  ]);
   const [widgetHeading, setWidgetHeading] =
     useState("Wholesale Pricing");
 
@@ -230,7 +310,31 @@ export default function CreateRulePage() {
 
     setSlabs(updated);
   }
+function handleDragEnd(event) {
+  const { active, over } = event;
 
+  if (!over || active.id === over.id) return;
+
+  const oldIndex =
+  dropdownValues.findIndex(
+    (value, index) =>
+      `${value}-${index}` === active.id
+  );
+
+  const newIndex =
+  dropdownValues.findIndex(
+    (value, index) =>
+      `${value}-${index}` === over.id
+  );
+
+  setDropdownValues(
+    arrayMove(
+      dropdownValues,
+      oldIndex,
+      newIndex
+    )
+  );
+}
   function addSlab() {
 
     setSlabs([
@@ -450,50 +554,31 @@ export default function CreateRulePage() {
                         Dropdown Values
                       </Text>
 
-                      {dropdownValues.map(
-                        (value, index) => (
+                      <DndContext
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={dropdownValues.map(
+                            (value, index) =>
+                              `${value}-${index}`
+                          )}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {dropdownValues.map((value, index) => (
 
-                          <InlineStack
-                            key={index}
-                            gap="200"
-                            align="space-between"
-                          >
+                            <SortableDropdownItem
+                              key={`${value}-${index}`}
+                              id={`${value}-${index}`}
+                              value={value}
+                              index={index}
+                              updateDropdownValue={updateDropdownValue}
+                              removeDropdownValue={removeDropdownValue}
+                            />
 
-                            <div
-                              style={{
-                                flex: 1,
-                              }}
-                            >
-
-                              <TextField
-                                label={`Value ${index + 1}`}
-                                labelHidden
-                                type="number"
-                                value={value}
-                                autoComplete="off"
-                                onChange={(val) =>
-                                  updateDropdownValue(
-                                    index,
-                                    val
-                                  )
-                                }
-                              />
-
-                            </div>
-
-                            <Button
-                              destructive
-                              onClick={() =>
-                                removeDropdownValue(index)
-                              }
-                            >
-                              Delete
-                            </Button>
-
-                          </InlineStack>
-
-                        )
-                      )}
+                          ))}
+                        </SortableContext>
+                      </DndContext>
 
                       <Button
                         onClick={addDropdownValue}
