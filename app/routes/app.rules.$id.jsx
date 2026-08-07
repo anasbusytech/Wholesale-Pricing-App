@@ -21,6 +21,8 @@ import {
   Checkbox,
   InlineStack,
   Banner,
+  RadioButton,
+  Box,
 } from "@shopify/polaris";
 import {
   Form,
@@ -79,6 +81,60 @@ function SortableDropdownItem({
         />
       </div>
       <Button destructive onClick={() => removeDropdownValue(index)}>
+        Delete
+      </Button>
+    </div>
+  );
+}
+
+function SortableSwatchItem({
+  id,
+  value,
+  index,
+  updateSwatchValue,
+  removeSwatchValue,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "10px",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: "grab",
+          padding: "8px",
+          userSelect: "none",
+        }}
+      >
+        ☰
+      </div>
+      <div style={{ flex: 1 }}>
+        <TextField
+          label={`Swatch Value ${index + 1}`}
+          labelHidden
+          type="number"
+          value={value}
+          autoComplete="off"
+          onChange={(val) => updateSwatchValue(index, val)}
+        />
+      </div>
+      <Button destructive onClick={() => removeSwatchValue(index)}>
         Delete
       </Button>
     </div>
@@ -161,11 +217,20 @@ export async function loader({ request, params }) {
     }
   }
 
+  // Determine quantity input type
+  let quantityInputType = "default";
+  if (rule.quantityInputEnabled) {
+    quantityInputType = "dropdown";
+  } else if (rule.quantitySwatchEnabled) {
+    quantityInputType = "swatch";
+  }
+
   return { 
     rule,
     usedVariantIds,
     currentVariantIds: rule.products.map(p => p.variantId),
     productTitles,
+    quantityInputType,
   };
 }
 
@@ -232,7 +297,12 @@ export async function action({ request, params }) {
       id: params.id,
     },
   });
-  const quantityDropdownEnabled = formData.get("quantityDropdownEnabled") === "true";
+  
+  // Get quantity input type
+  const quantityInputType = formData.get("quantityInputType") || "default";
+  const quantityDropdownEnabled = quantityInputType === "dropdown";
+  const quantitySwatchEnabled = quantityInputType === "swatch";
+  
   const dropdownValues = [
     ...new Set(
       formData
@@ -242,6 +312,17 @@ export async function action({ request, params }) {
         .filter(Boolean)
     ),
   ];
+  
+  const swatchValues = [
+    ...new Set(
+      formData
+        .get("swatchValues")
+        ?.split(",")
+        .map(v => Number(v.trim()))
+        .filter(Boolean)
+    ),
+  ];
+  
   const products = JSON.parse(formData.get("products") || "[]");
   const slabs = JSON.parse(formData.get("slabs") || "[]");
 
@@ -265,7 +346,9 @@ export async function action({ request, params }) {
       name,
       enabled,
       quantityInputEnabled: quantityDropdownEnabled,
+      quantitySwatchEnabled: quantitySwatchEnabled,
       quantityDropdown: dropdownValues,
+      quantitySwatch: swatchValues,
       widgetConfig: {
         heading: widgetHeading,
         backgroundColor,
@@ -427,19 +510,34 @@ export async function action({ request, params }) {
 
 export default function EditRulePage() {
   const navigate = useNavigate();
-  const { rule, usedVariantIds, currentVariantIds, productTitles } = useLoaderData();
+  const { rule, usedVariantIds, currentVariantIds, productTitles, quantityInputType: initialQuantityType } = useLoaderData();
   const [skippedCount, setSkippedCount] = useState(0);
 
   const [name, setName] = useState(rule.name);
   const [enabled, setEnabled] = useState(rule.enabled);
-  const [quantityDropdownEnabled, setQuantityDropdownEnabled] = useState(
-    rule.quantityInputEnabled
-  );
+  
+  // Quantity input type: 'default', 'dropdown', 'swatch'
+  const [quantityInputType, setQuantityInputType] = useState(initialQuantityType || "default");
 
   // Convert saved dropdown values to the same format as create page
   const [dropdownValues, setDropdownValues] = useState(
     rule.quantityDropdown && rule.quantityDropdown.length > 0
       ? rule.quantityDropdown.map(val => ({
+          id: crypto.randomUUID(),
+          value: String(val),
+        }))
+      : [
+          { id: crypto.randomUUID(), value: "5" },
+          { id: crypto.randomUUID(), value: "10" },
+          { id: crypto.randomUUID(), value: "20" },
+          { id: crypto.randomUUID(), value: "50" },
+        ]
+  );
+
+  // Convert saved swatch values to the same format as create page
+  const [swatchValues, setSwatchValues] = useState(
+    rule.quantitySwatch && rule.quantitySwatch.length > 0
+      ? rule.quantitySwatch.map(val => ({
           id: crypto.randomUUID(),
           value: String(val),
         }))
@@ -501,6 +599,7 @@ export default function EditRulePage() {
     ]);
   }
 
+  // Dropdown handlers
   function handleDragEnd(event) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -529,6 +628,37 @@ export default function EditRulePage() {
 
   function removeDropdownValue(index) {
     setDropdownValues(dropdownValues.filter((_, i) => i !== index));
+  }
+
+  // Swatch handlers
+  function handleSwatchDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = swatchValues.findIndex(item => item.id === active.id);
+    const newIndex = swatchValues.findIndex(item => item.id === over.id);
+
+    setSwatchValues(arrayMove(swatchValues, oldIndex, newIndex));
+  }
+
+  function addSwatchValue() {
+    setSwatchValues([
+      ...swatchValues,
+      {
+        id: crypto.randomUUID(),
+        value: "",
+      },
+    ]);
+  }
+
+  function updateSwatchValue(index, value) {
+    const updated = [...swatchValues];
+    updated[index].value = value;
+    setSwatchValues(updated);
+  }
+
+  function removeSwatchValue(index) {
+    setSwatchValues(swatchValues.filter((_, i) => i !== index));
   }
 
   function removeProduct(variantId) {
@@ -614,8 +744,9 @@ export default function EditRulePage() {
                 <input type="hidden" name="highlightColor" value={highlightColor} />
                 <input type="hidden" name="products" value={JSON.stringify(products)} />
                 <input type="hidden" name="slabs" value={JSON.stringify(slabs)} />
-                <input type="hidden" name="quantityDropdownEnabled" value={quantityDropdownEnabled} />
+                <input type="hidden" name="quantityInputType" value={quantityInputType} />
                 <input type="hidden" name="dropdownValues" value={dropdownValues.map(item => item.value).join(",")} />
+                <input type="hidden" name="swatchValues" value={swatchValues.map(item => item.value).join(",")} />
 
                 <Checkbox
                   label="Enable Rule"
@@ -670,13 +801,45 @@ export default function EditRulePage() {
                 </BlockStack>
 
                 <BlockStack gap="300">
-                  <Checkbox
-                    label="Enable Quantity Dropdown"
-                    checked={quantityDropdownEnabled}
-                    onChange={setQuantityDropdownEnabled}
-                  />
+                  <Text as="h3" variant="headingMd">
+                    Quantity Input Type
+                  </Text>
+                  <Text as="p" tone="subdued">
+                    Choose how customers will select quantity for wholesale pricing.
+                  </Text>
 
-                  {quantityDropdownEnabled && (
+                  <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                    <BlockStack gap="300">
+                      <RadioButton
+                        label="Default (Theme's Quantity Switcher)"
+                        helpText="Uses your theme's default quantity input"
+                        checked={quantityInputType === "default"}
+                        id="default"
+                        name="quantityInputType"
+                        onChange={() => setQuantityInputType("default")}
+                      />
+
+                      <RadioButton
+                        label="Dropdown"
+                        helpText="Customers select quantity from a dropdown menu"
+                        checked={quantityInputType === "dropdown"}
+                        id="dropdown"
+                        name="quantityInputType"
+                        onChange={() => setQuantityInputType("dropdown")}
+                      />
+
+                      <RadioButton
+                        label="Swatch"
+                        helpText="Customers select quantity from clickable swatch buttons"
+                        checked={quantityInputType === "swatch"}
+                        id="swatch"
+                        name="quantityInputType"
+                        onChange={() => setQuantityInputType("swatch")}
+                      />
+                    </BlockStack>
+                  </Box>
+
+                  {quantityInputType === "dropdown" && (
                     <BlockStack gap="200">
                       <Text as="h3" variant="headingSm">
                         Dropdown Values
@@ -704,8 +867,67 @@ export default function EditRulePage() {
                       </DndContext>
 
                       <Button submit={false} onClick={addDropdownValue}>
-                        Add Value
+                        Add Dropdown Value
                       </Button>
+                    </BlockStack>
+                  )}
+
+                  {quantityInputType === "swatch" && (
+                    <BlockStack gap="200">
+                      <Text as="h3" variant="headingSm">
+                        Swatch Values
+                      </Text>
+                      <Text as="p" tone="subdued">
+                        These will appear as clickable buttons for quantity selection.
+                      </Text>
+
+                      <DndContext
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleSwatchDragEnd}
+                      >
+                        <SortableContext
+                          items={swatchValues.map(item => item.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {swatchValues.map((item, index) => (
+                            <SortableSwatchItem
+                              key={item.id}
+                              id={item.id}
+                              value={item.value}
+                              index={index}
+                              updateSwatchValue={updateSwatchValue}
+                              removeSwatchValue={removeSwatchValue}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+
+                      <Button submit={false} onClick={addSwatchValue}>
+                        Add Swatch Value
+                      </Button>
+
+                      {/* Preview of how swatch will look */}
+                      <Box padding="400" background="bg-surface" borderRadius="200">
+                        <Text as="h4" variant="headingXs">Preview:</Text>
+                        <InlineStack gap="200" wrap={true}>
+                          {swatchValues.map((item, index) => (
+                            item.value && (
+                              <Box
+                                key={index}
+                                padding="200"
+                                background="bg-surface-secondary"
+                                borderRadius="200"
+                                borderWidth="1"
+                                borderColor="border"
+                              >
+                                <Text as="span" variant="bodyMd">
+                                  {item.value}
+                                </Text>
+                              </Box>
+                            )
+                          ))}
+                        </InlineStack>
+                      </Box>
                     </BlockStack>
                   )}
                 </BlockStack>
