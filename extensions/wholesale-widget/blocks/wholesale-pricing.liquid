@@ -16,6 +16,100 @@
 
 </div>
 
+<style>
+/* Custom Dropdown Styles */
+.wholesale-custom-dropdown {
+  position: relative;
+  width: 100%;
+  min-height: 45px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wholesale-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 15px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background-color: #ffffff;
+  min-height: 45px;
+  transition: border-color 0.2s ease;
+}
+
+.wholesale-dropdown-header:hover {
+  border-color: #999;
+}
+
+.wholesale-dropdown-header .arrow {
+  transition: transform 0.2s ease;
+  font-size: 12px;
+  color: #666;
+}
+
+.wholesale-dropdown-header .arrow.open {
+  transform: rotate(180deg);
+}
+
+.wholesale-dropdown-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.wholesale-dropdown-options.open {
+  display: block;
+}
+
+.wholesale-dropdown-option {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.wholesale-dropdown-option:hover {
+  background-color: #f5f5f5;
+}
+
+.wholesale-dropdown-option.selected {
+  background-color: #e8f5e9;
+  font-weight: 600;
+}
+
+.wholesale-dropdown-option:active {
+  background-color: #e0e0e0;
+}
+
+/* Scrollbar styling */
+.wholesale-dropdown-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wholesale-dropdown-options::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.wholesale-dropdown-options::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.wholesale-dropdown-options::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+</style>
+
 <script>
 window.wholesaleCustomerTags =
 {{ customer.tags | json }};
@@ -84,6 +178,107 @@ document.addEventListener("DOMContentLoaded", async () => {
     return input.parentElement || input;
   }
 
+  // Creates a custom dropdown (div-based) with the given values
+  function createCustomDropdown(values, initialValue, onChangeCallback) {
+    // Create dropdown container
+    const dropdown = document.createElement('div');
+    dropdown.className = 'wholesale-custom-dropdown';
+    dropdown.id = 'wholesale-qty-dropdown';
+
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'wholesale-dropdown-header';
+    
+    const selectedText = document.createElement('span');
+    selectedText.className = 'selected-value';
+    selectedText.textContent = initialValue || values[0] || '1';
+    
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow';
+    arrow.innerHTML = '▼';
+    
+    header.appendChild(selectedText);
+    header.appendChild(arrow);
+
+    // Create options container
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'wholesale-dropdown-options';
+
+    // Add options
+    values.forEach((value) => {
+      const option = document.createElement('div');
+      option.className = 'wholesale-dropdown-option';
+      if (value === (initialValue || values[0])) {
+        option.classList.add('selected');
+      }
+      option.textContent = value;
+      option.dataset.value = value;
+
+      option.addEventListener('click', () => {
+        // Update selected value
+        const selectedValue = option.dataset.value;
+        selectedText.textContent = selectedValue;
+        
+        // Update selected class
+        optionsContainer.querySelectorAll('.wholesale-dropdown-option').forEach(opt => {
+          opt.classList.remove('selected');
+        });
+        option.classList.add('selected');
+        
+        // Close dropdown
+        optionsContainer.classList.remove('open');
+        arrow.classList.remove('open');
+        
+        // Update quantity input
+        qtyInput.value = selectedValue;
+        qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+        qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Call callback if provided
+        if (onChangeCallback) {
+          onChangeCallback(selectedValue);
+        }
+        
+        // Trigger price update
+        if (typeof updateWholesalePrice === 'function') {
+          updateWholesalePrice();
+        }
+      });
+
+      optionsContainer.appendChild(option);
+    });
+
+    // Toggle dropdown on header click
+    header.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = optionsContainer.classList.contains('open');
+      
+      // Close all other dropdowns
+      document.querySelectorAll('.wholesale-dropdown-options.open').forEach(el => {
+        if (el !== optionsContainer) {
+          el.classList.remove('open');
+          el.parentElement.querySelector('.arrow')?.classList.remove('open');
+        }
+      });
+      
+      optionsContainer.classList.toggle('open');
+      arrow.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) {
+        optionsContainer.classList.remove('open');
+        arrow.classList.remove('open');
+      }
+    });
+
+    dropdown.appendChild(header);
+    dropdown.appendChild(optionsContainer);
+
+    return dropdown;
+  }
+
   // Inserts the dropdown right where the theme's quantity
   // switcher is, and hides the original switcher — so visually
   // the dropdown *replaces* it instead of appearing elsewhere.
@@ -136,48 +331,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       40,50,75,100
     ];
 
-    const dropdown =
-      document.createElement("select");
-
-    dropdown.id =
-      "wholesale-qty-dropdown";
-
-    quantities.forEach((qty) => {
-
-      const option =
-        document.createElement("option");
-
-      option.value = qty;
-      option.textContent = qty;
-
-      dropdown.appendChild(option);
-
-    });
-
+    const dropdown = createCustomDropdown(quantities, '1');
     container.appendChild(dropdown);
 
-    dropdown.value = "1";
     qtyInput.value = "1";
-
-    dropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          dropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
-    );
 
     // Show the quantity input for variants without rule
     showQtyWrapper(qtyInput);
-
 
     // Reset regular price
     if (regularPrice && originalPriceText) {
@@ -235,25 +395,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     data.rule.quantityDropdown?.length
   ) {
 
-    const dropdown =
-      document.createElement("select");
-
-    dropdown.id =
-      "wholesale-qty-dropdown";
-
-    data.rule.quantityDropdown.forEach(
-      (qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-
-        option.textContent = qty;
-
-        dropdown.appendChild(option);
-
-      }
+    const dropdown = createCustomDropdown(
+      data.rule.quantityDropdown,
+      data.rule.quantityDropdown[0]
     );
 
     insertDropdownAtQtyPosition(dropdown, qtyInput);
@@ -261,24 +405,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     qtyInput.value =
       data.rule.quantityDropdown[0];
 
-    dropdown.value =
-      data.rule.quantityDropdown[0];
-
-    dropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          dropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
-    );
   } else {
     // Show quantity input if no dropdown in rule
     showQtyWrapper(qtyInput);
@@ -301,29 +427,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       "#000000";
 
     widget.style.padding = "15px";
-  }
-
-
-  // Sync dropdown with quantity input
-  const dropdown =
-    document.getElementById(
-      "wholesale-qty-dropdown"
-    );
-
-  if (
-    dropdown &&
-    qtyInput
-  ) {
-    dropdown.addEventListener(
-      "change",
-      () => {
-        qtyInput.value =
-          dropdown.value;
-        qtyInput.dispatchEvent(
-          new Event("input")
-        );
-      }
-    );
   }
 
   function updateWholesalePrice() {
@@ -365,7 +468,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!matchedSlab) {
 
-
     if (
         regularPrice &&
         originalPriceText
@@ -376,8 +478,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     return;
     }
-
-
 
     document
       .querySelectorAll(
@@ -463,44 +563,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         40,50,75,100
       ];
 
-      const dropdown =
-        document.createElement("select");
-
-      dropdown.id =
-        "wholesale-qty-dropdown";
-
-      quantities.forEach((qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-        option.textContent = qty;
-
-        dropdown.appendChild(option);
-
-      });
-
+      const dropdown = createCustomDropdown(quantities, '1');
       container.appendChild(dropdown);
 
-      dropdown.value = "1";
       qtyInput.value = "1";
-
-      dropdown.addEventListener(
-        "change",
-        () => {
-
-          qtyInput.value =
-            dropdown.value;
-
-          qtyInput.dispatchEvent(
-            new Event("input", {
-              bubbles: true,
-            })
-          );
-
-        }
-      );
 
       // Show the quantity input for variants without rule
       showQtyWrapper(qtyInput);
@@ -561,49 +627,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     data.rule.quantityDropdown?.length
   ) {
 
-    const newDropdown =
-      document.createElement("select");
-
-    newDropdown.id =
-      "wholesale-qty-dropdown";
-
-    data.rule.quantityDropdown.forEach(
-      (qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-        option.textContent = qty;
-
-        newDropdown.appendChild(option);
-
-      }
+    const newDropdown = createCustomDropdown(
+      data.rule.quantityDropdown,
+      data.rule.quantityDropdown[0]
     );
 
     insertDropdownAtQtyPosition(newDropdown, qtyInput);
 
     qtyInput.value =
       data.rule.quantityDropdown[0];
-
-    newDropdown.value =
-      data.rule.quantityDropdown[0];
-
-    newDropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          newDropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
-    );
 
   } else {
 
