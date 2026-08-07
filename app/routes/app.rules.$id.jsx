@@ -21,13 +21,14 @@ import {
   Checkbox,
   InlineStack,
   Banner,
+  SkeletonBodyText,
 } from "@shopify/polaris";
 import {
   Form,
   useLoaderData,
   useNavigate,
 } from "react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { redirect } from "react-router";
 import prisma from "../db.server";
 
@@ -95,8 +96,8 @@ export async function loader({ request, params }) {
       slabs: true,
     },
   });
-  const { admin } =
-    await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
+  
   if (!rule) {
     return redirect("/app/rules");
   }
@@ -117,13 +118,56 @@ export async function loader({ request, params }) {
     rule.products.map(product => product.variantId)
   );
 
-  return {
-    rule: {
-      ...rule,
-      products: productTitles,
-    },
+  // Fetch product details for the rule's products
+  let productTitles = {};
+  if (rule.products.length > 0) {
+    try {
+      const variantIds = rule.products.map(p => p.variantId);
+      
+      // Fetch variants with product info using GraphQL
+      const response = await admin.graphql(`
+        query getVariants($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on ProductVariant {
+              id
+              title
+              product {
+                title
+              }
+              displayName
+            }
+          }
+        }
+      `, {
+        variables: {
+          ids: variantIds,
+        },
+      });
+
+      const data = await response.json();
+      
+      if (data.data && data.data.nodes) {
+        data.data.nodes.forEach((node) => {
+          if (node && node.id) {
+            // Use displayName or combine product and variant title
+            const productTitle = node.product?.title || '';
+            const variantTitle = node.title || '';
+            productTitles[node.id] = variantTitle 
+              ? `${productTitle} - ${variantTitle}`
+              : productTitle || node.id;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching product titles:', error);
+    }
+  }
+
+  return { 
+    rule,
     usedVariantIds,
     currentVariantIds: rule.products.map(p => p.variantId),
+    productTitles,
   };
 }
 
@@ -145,35 +189,6 @@ export async function action({ request, params }) {
 
     if (rule?.discountId) {
       const { admin } = await authenticate.admin(request);
-      const productTitles = await Promise.all(
-        rule.products.map(async (item) => {
-          const response = await admin.graphql(
-            `#graphql
-            query($id: ID!) {
-              productVariant(id: $id) {
-                id
-                title
-                product {
-                  title
-                }
-              }
-            }
-            `,
-            {
-              variables: {
-                id: item.variantId,
-              },
-            }
-          );
-
-          const json = await response.json();
-
-          return {
-            ...item,
-            title: `${json.data.productVariant.product.title} - ${json.data.productVariant.title}`,
-          };
-        })
-      );      
       await admin.graphql(`
         mutation discountAutomaticDelete($id: ID!) {
           discountAutomaticDelete(id: $id) {
@@ -414,8 +429,9 @@ export async function action({ request, params }) {
 
 export default function EditRulePage() {
   const navigate = useNavigate();
-  const { rule, usedVariantIds, currentVariantIds } = useLoaderData();
+  const { rule, usedVariantIds, currentVariantIds, productTitles } = useLoaderData();
   const [skippedCount, setSkippedCount] = useState(0);
+  const [isLoadingTitles, setIsLoadingTitles] = useState(false);
 
   const [name, setName] = useState(rule.name);
   const [enabled, setEnabled] = useState(rule.enabled);
@@ -454,11 +470,12 @@ export default function EditRulePage() {
     rule.widgetConfig?.highlightColor || "#d1fadf"
   );
 
+  // Initialize products with titles from loader data
   const [products, setProducts] = useState(
     rule.products.map((p) => ({
       productId: p.productId,
       variantId: p.variantId,
-      title: p.title,
+      title: productTitles[p.variantId] || `Variant: ${p.variantId}`,
     }))
   );
 
@@ -636,7 +653,9 @@ export default function EditRulePage() {
                   {products.map((product) => (
                     <Card key={product.variantId}>
                       <InlineStack align="space-between" blockAlign="center">
-                        <Text as="p">{product.title}</Text>
+                        <Text as="p">
+                          {product.title}
+                        </Text>
                         <Button
                           tone="critical"
                           size="slim"
