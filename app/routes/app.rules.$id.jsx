@@ -21,14 +21,13 @@ import {
   Checkbox,
   InlineStack,
   Banner,
-  SkeletonBodyText,
 } from "@shopify/polaris";
 import {
   Form,
   useLoaderData,
   useNavigate,
 } from "react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { redirect } from "react-router";
 import prisma from "../db.server";
 
@@ -131,10 +130,10 @@ export async function loader({ request, params }) {
             ... on ProductVariant {
               id
               title
+              displayName
               product {
                 title
               }
-              displayName
             }
           }
         }
@@ -149,12 +148,11 @@ export async function loader({ request, params }) {
       if (data.data && data.data.nodes) {
         data.data.nodes.forEach((node) => {
           if (node && node.id) {
-            // Use displayName or combine product and variant title
-            const productTitle = node.product?.title || '';
-            const variantTitle = node.title || '';
-            productTitles[node.id] = variantTitle 
-              ? `${productTitle} - ${variantTitle}`
-              : productTitle || node.id;
+            // Use displayName (which is already formatted) or fallback to manual formatting
+            productTitles[node.id] = 
+              node.displayName ||
+              `${node.product?.title} - ${node.title}` ||
+              node.id;
           }
         });
       }
@@ -431,7 +429,6 @@ export default function EditRulePage() {
   const navigate = useNavigate();
   const { rule, usedVariantIds, currentVariantIds, productTitles } = useLoaderData();
   const [skippedCount, setSkippedCount] = useState(0);
-  const [isLoadingTitles, setIsLoadingTitles] = useState(false);
 
   const [name, setName] = useState(rule.name);
   const [enabled, setEnabled] = useState(rule.enabled);
