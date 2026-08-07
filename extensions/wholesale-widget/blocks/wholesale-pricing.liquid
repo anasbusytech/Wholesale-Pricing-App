@@ -56,12 +56,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const response = await fetch(
     `/apps/wholesale?productId=${productId}&variantId=${variantId}`
   );
+  
   const qtyInput =
     document.querySelector(
       'input[name="quantity"]'
     );
 
   if (!qtyInput) return;
+  
   const data = await response.json();
   const rule = data.rule;
   const widgetConfig =
@@ -79,10 +81,124 @@ document.addEventListener("DOMContentLoaded", async () => {
     qtyInput.closest('.quantity') ||
     qtyInput.closest('.product-form__input') ||
     qtyInput.closest('.quantity-selector') ||
+    qtyInput.closest('.quantity__input') ||
+    qtyInput.closest('.product-form__quantity-input') ||
     qtyInput.parentElement;
 
-  // Store the original quantity input for later reference
+  // Store the original quantity input and wrapper
   const originalQtyInput = qtyInput;
+  const originalQtyWrapper = qtyWrapper;
+
+  // Function to replace quantity switcher with dropdown
+  function replaceQuantityWithDropdown(dropdownValues, initialValue) {
+    // Remove any existing custom dropdown
+    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (existingDropdown) {
+      existingDropdown.remove();
+    }
+
+    // Create new dropdown
+    const dropdown = document.createElement("select");
+    dropdown.id = "wholesale-qty-dropdown";
+    dropdown.className = "wholesale-qty-select";
+    
+    // Style to match theme's quantity input
+    dropdown.style.width = "100%";
+    dropdown.style.height = "100%";
+    dropdown.style.minHeight = "45px";
+    dropdown.style.padding = "10px 15px";
+    dropdown.style.fontSize = "16px";
+    dropdown.style.border = "1px solid #d9d9d9";
+    dropdown.style.borderRadius = "4px";
+    dropdown.style.backgroundColor = "#ffffff";
+    dropdown.style.cursor = "pointer";
+
+    // Add options
+    dropdownValues.forEach((qty) => {
+      const option = document.createElement("option");
+      option.value = qty;
+      option.textContent = qty;
+      dropdown.appendChild(option);
+    });
+
+    // Set initial value
+    dropdown.value = initialValue || dropdownValues[0];
+
+    // Hide the original quantity input
+    originalQtyInput.style.display = "none";
+    
+    // If we have a wrapper, clear it and add the dropdown
+    if (originalQtyWrapper) {
+      // Clear the wrapper but keep it
+      const wrapperChildren = originalQtyWrapper.children;
+      for (let i = wrapperChildren.length - 1; i >= 0; i--) {
+        if (wrapperChildren[i] !== originalQtyInput) {
+          wrapperChildren[i].style.display = "none";
+        }
+      }
+      
+      // If the wrapper has a specific structure, try to insert dropdown in the same position
+      if (originalQtyWrapper.querySelector('.quantity__input')) {
+        // For Dawn theme style
+        originalQtyWrapper.querySelector('.quantity__input').style.display = 'none';
+        originalQtyWrapper.appendChild(dropdown);
+      } else if (originalQtyWrapper.querySelector('.product-form__quantity-input')) {
+        // For other themes
+        originalQtyWrapper.querySelector('.product-form__quantity-input').style.display = 'none';
+        originalQtyWrapper.appendChild(dropdown);
+      } else {
+        // Generic fallback
+        originalQtyWrapper.appendChild(dropdown);
+      }
+      
+      // Ensure dropdown takes full width
+      dropdown.style.width = originalQtyWrapper.style.width || "100%";
+    } else {
+      // Fallback: replace the input directly
+      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput);
+    }
+
+    // Sync dropdown with quantity input
+    dropdown.addEventListener("change", () => {
+      qtyInput.value = dropdown.value;
+      qtyInput.dispatchEvent(new Event("input", { bubbles: true }));
+      qtyInput.dispatchEvent(new Event("change", { bubbles: true }));
+      // Trigger price update
+      updateWholesalePrice();
+    });
+
+    // Sync quantity input changes back to dropdown
+    qtyInput.addEventListener("input", () => {
+      if (dropdown.value !== qtyInput.value) {
+        dropdown.value = qtyInput.value;
+      }
+    });
+
+    return dropdown;
+  }
+
+  // Function to restore original quantity input
+  function restoreOriginalQuantityInput() {
+    // Remove any custom dropdown
+    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (existingDropdown) {
+      existingDropdown.remove();
+    }
+    
+    // Show the original quantity input
+    originalQtyInput.style.display = "";
+    
+    // Restore any hidden children in the wrapper
+    if (originalQtyWrapper) {
+      const wrapperChildren = originalQtyWrapper.children;
+      for (let i = wrapperChildren.length - 1; i >= 0; i--) {
+        if (wrapperChildren[i] !== originalQtyInput) {
+          wrapperChildren[i].style.display = "";
+        }
+      }
+      originalQtyWrapper.style.display = "";
+    }
+  }
 
   // Check if this is a simple product (no variants) OR first load
   const isSimpleProduct = !document.querySelector('[name="id"]')?.options;
@@ -108,101 +224,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       "Wholesale Pricing";
   }
 
-  // Function to create and insert dropdown at the quantity input position
-  function createDropdownAtQuantityPosition(dropdownValues, initialValue) {
-    // Remove any existing custom dropdown
-    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
-    if (existingDropdown) {
-      existingDropdown.remove();
-    }
-
-    // Create new dropdown
-    const dropdown = document.createElement("select");
-    dropdown.id = "wholesale-qty-dropdown";
-    dropdown.style.width = "100%";
-    dropdown.style.padding = "10px";
-    dropdown.style.fontSize = "16px";
-    dropdown.style.border = "1px solid #d9d9d9";
-    dropdown.style.borderRadius = "4px";
-    dropdown.style.backgroundColor = "#ffffff";
-
-    // Add options
-    dropdownValues.forEach((qty) => {
-      const option = document.createElement("option");
-      option.value = qty;
-      option.textContent = qty;
-      dropdown.appendChild(option);
-    });
-
-    // Set initial value
-    dropdown.value = initialValue || dropdownValues[0];
-
-    // Hide the original quantity input
-    if (qtyWrapper) {
-      // Store the original input's display style
-      originalQtyInput.style.display = "none";
-      
-      // Insert dropdown right next to the hidden input
-      // This ensures it appears exactly where the quantity input was
-      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput.nextSibling);
-      
-      // Style the dropdown to match the original input's container
-      dropdown.style.width = qtyWrapper.style.width || "100%";
-    } else {
-      // Fallback: insert after the quantity input
-      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput.nextSibling);
-    }
-
-    // Sync dropdown with quantity input
-    dropdown.addEventListener("change", () => {
-      qtyInput.value = dropdown.value;
-      qtyInput.dispatchEvent(new Event("input", { bubbles: true }));
-      // Also trigger any theme-specific events
-      qtyInput.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-
-    // Sync quantity input changes back to dropdown (if someone uses the input)
-    qtyInput.addEventListener("input", () => {
-      if (dropdown.value !== qtyInput.value) {
-        dropdown.value = qtyInput.value;
-      }
-    });
-
-    return dropdown;
-  }
-
-  // Function to show the original quantity input (for no-rule or dropdown disabled)
-  function showOriginalQuantityInput() {
-    // Remove any custom dropdown
-    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
-    if (existingDropdown) {
-      existingDropdown.remove();
-    }
-    
-    // Show the original quantity input
-    originalQtyInput.style.display = "";
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "";
-    }
-  }
-
   if (!data.rule) {
-    // This is for variants with no rule - show message with dropdown
+    // This is for variants with no rule - show message
     container.innerHTML =
       "<p>No wholesale pricing available for this variant.</p>";
     
-    // Create default dropdown at the quantity input position
-    const quantities = [
-      1,2,3,4,5,
-      10,15,20,25,30,
-      40,50,75,100
-    ];
-
-    createDropdownAtQuantityPosition(quantities, "1");
+    // Restore original quantity input
+    restoreOriginalQuantityInput();
     qtyInput.value = "1";
-
-    // Show the quantity input for variants without rule
-    showOriginalQuantityInput();
 
     // Clear live price
     livePrice.innerHTML = "";
@@ -226,10 +255,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     <table style="
       width:100%;
       border-collapse:collapse;
+      margin-top:10px;
     ">
       <tr>
-        <th>Quantity</th>
-        <th>Price</th>
+        <th style="text-align:left; padding:8px;">Quantity</th>
+        <th style="text-align:left; padding:8px;">Price</th>
       </tr>
   `;
 
@@ -238,8 +268,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       <tr data-min="${slab.minQty}"
           data-max="${slab.maxQty}"
           data-price="${slab.price}">
-        <td>${slab.maxQty ? `${slab.minQty} - ${slab.maxQty}` : `${slab.minQty}+`}</td>
-        <td>Rs.${slab.price}</td>
+        <td style="padding:8px;">${slab.maxQty ? `${slab.minQty} - ${slab.maxQty}` : `${slab.minQty}+`}</td>
+        <td style="padding:8px;">Rs.${slab.price}</td>
       </tr>
     `;
   });
@@ -252,16 +282,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     data.rule.quantityInputEnabled &&
     data.rule.quantityDropdown?.length
   ) {
-    // Create custom dropdown at the quantity input position
-    createDropdownAtQuantityPosition(
+    // Replace quantity switcher with custom dropdown
+    const dropdown = replaceQuantityWithDropdown(
       data.rule.quantityDropdown,
       data.rule.quantityDropdown[0]
     );
     
     qtyInput.value = data.rule.quantityDropdown[0];
+    
+    // Add event listener to the dropdown for price updates
+    if (dropdown) {
+      dropdown.addEventListener('change', updateWholesalePrice);
+    }
   } else {
-    // Show the original quantity input
-    showOriginalQuantityInput();
+    // Restore original quantity input
+    restoreOriginalQuantityInput();
     qtyInput.value = 1;
   }
 
@@ -279,6 +314,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       widgetConfig.textColor ||
       "#000000";
     widget.style.padding = "15px";
+    widget.style.marginTop = "15px";
+    widget.style.borderRadius = "4px";
   }
 
   function updateWholesalePrice() {
@@ -369,22 +406,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // Initial price update
+  updateWholesalePrice();
+
   // Listen for quantity input changes
   qtyInput.addEventListener(
     "input",
     updateWholesalePrice
   );
-
-  // Also listen for changes on the custom dropdown
-  const dropdown = document.getElementById("wholesale-qty-dropdown");
-  if (dropdown) {
-    dropdown.addEventListener("change", () => {
-      updateWholesalePrice();
-    });
-  }
-
-  // Initial price update
-  updateWholesalePrice();
 
   // Handle variant changes
   document.addEventListener("change", async (e) => {
@@ -401,29 +430,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Variant Changed", data);
 
     if (!data.rule) {
-      // Remove any custom dropdown
-      const existingDropdown = document.getElementById("wholesale-qty-dropdown");
-      if (existingDropdown) {
-        existingDropdown.remove();
-      }
-
+      // Restore original quantity input
+      restoreOriginalQuantityInput();
       livePrice.innerHTML = "";
-
       container.innerHTML =
         "<p>No wholesale pricing available for this variant.</p>";
-
-      // Create default dropdown at quantity position
-      const quantities = [
-        1,2,3,4,5,
-        10,15,20,25,30,
-        40,50,75,100
-      ];
-
-      createDropdownAtQuantityPosition(quantities, "1");
       qtyInput.value = "1";
-
-      // Show the original quantity input
-      showOriginalQuantityInput();
 
       // Reset regular price
       if (regularPrice && originalPriceText) {
@@ -439,10 +451,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       <table style="
         width:100%;
         border-collapse:collapse;
+        margin-top:10px;
       ">
         <tr>
-          <th>Quantity</th>
-          <th>Price</th>
+          <th style="text-align:left; padding:8px;">Quantity</th>
+          <th style="text-align:left; padding:8px;">Price</th>
         </tr>
     `;
 
@@ -451,12 +464,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         <tr data-min="${slab.minQty}"
             data-max="${slab.maxQty}"
             data-price="${slab.price}">
-          <td>
+          <td style="padding:8px;">
             ${slab.maxQty
               ? `${slab.minQty} - ${slab.maxQty}`
               : `${slab.minQty}+`}
           </td>
-          <td>Rs.${slab.price}</td>
+          <td style="padding:8px;">Rs.${slab.price}</td>
         </tr>
       `;
     });
@@ -474,33 +487,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       data.rule.quantityInputEnabled &&
       data.rule.quantityDropdown?.length
     ) {
-      // Create custom dropdown at quantity position
-      createDropdownAtQuantityPosition(
+      // Replace with custom dropdown
+      const dropdown = replaceQuantityWithDropdown(
         data.rule.quantityDropdown,
         data.rule.quantityDropdown[0]
       );
       
       qtyInput.value = data.rule.quantityDropdown[0];
+      
+      if (dropdown) {
+        dropdown.addEventListener('change', updateWholesalePrice);
+      }
     } else {
-      // Show original quantity input
-      showOriginalQuantityInput();
+      // Restore original quantity input
+      restoreOriginalQuantityInput();
       qtyInput.value = 1;
     }
 
-    console.log(
-      "Running price refresh"
-    );
     updateWholesalePrice();
   });
-
-  function getQtyInput() {
-    return document.querySelector('input[name="quantity"]');
-  }
 
   const form = qtyInput?.closest("form");
 
   form?.addEventListener("submit", () => {
-    qtyInput.value = qtyInput.value;
+    // Ensure the quantity value is correct before submitting
+    const dropdown = document.getElementById("wholesale-qty-dropdown");
+    if (dropdown) {
+      qtyInput.value = dropdown.value;
+    }
   });
 });
 </script>
