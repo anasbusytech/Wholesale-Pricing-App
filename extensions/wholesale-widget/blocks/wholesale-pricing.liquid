@@ -75,6 +75,34 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const widget = document.querySelector(".wholesale-pricing-widget");
 
+  // Finds the wrapper element around the theme's quantity input.
+  // Falls back to the input's immediate parent if no known
+  // Shopify theme class is found, so this works across themes
+  // without needing to know the exact wrapper class name.
+  function getQtyWrapper(input) {
+    const known =
+      input.closest('.product-form__quantity') ||
+      input.closest('.quantity');
+    if (known) return known;
+    return input.parentElement || input;
+  }
+
+  // Inserts the dropdown right where the theme's quantity
+  // switcher is, and hides the original switcher — so visually
+  // the dropdown *replaces* it instead of appearing elsewhere.
+  function insertDropdownAtQtyPosition(dropdown, input) {
+    const wrapper = getQtyWrapper(input);
+    wrapper.insertAdjacentElement("afterend", dropdown);
+    wrapper.style.display = "none";
+  }
+
+  // Restores the theme's original quantity switcher
+  // (used when there's no dropdown to show instead).
+  function showQtyWrapper(input) {
+    const wrapper = getQtyWrapper(input);
+    wrapper.style.display = "";
+  }
+
   // Check if this is a simple product (no variants) OR first load
   const isSimpleProduct = !document.querySelector('[name="id"]')?.options;
 
@@ -151,31 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
 
     // Show the quantity input for variants without rule
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-    function insertDropdownAfterQuantity(dropdown) {
-      const qtyWrapper =
-        qtyInput.closest(".product-form__quantity") ||
-        qtyInput.closest(".quantity");
-
-      if (qtyWrapper) {
-        qtyWrapper.insertAdjacentElement("afterend", dropdown);
-        qtyWrapper.style.display = "none";
-      } else {
-        qtyInput.insertAdjacentElement("afterend", dropdown);
-        qtyInput.style.display = "none";
-      }
-    }
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "";
-    } else {
-      qtyInput.style.display = "";
-    }
+    showQtyWrapper(qtyInput);
 
     // Clear live price
     livePrice.innerHTML = "";
@@ -257,20 +261,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     );
 
-    insertDropdownAfterQuantity(dropdown);
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
+    insertDropdownAtQtyPosition(dropdown, qtyInput);
 
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "none";
-    } else {
-      qtyInput.style.display = "none";
-    }
     qtyInput.value =
       data.rule.quantityDropdown[0];
 
@@ -294,19 +286,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   } else {
     // Show quantity input if no dropdown in rule
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "";
-    } else {
-      qtyInput.style.display = "";
-    }
+    showQtyWrapper(qtyInput);
   }
 
   if (widget) {
@@ -480,16 +460,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (oldDropdown) {
         oldDropdown.remove();
       }
-      // Show the quantity input for variants without rule
-      const qtyWrapper =
-        qtyInput.closest('.product-form__quantity') ||
-        qtyInput.closest('.quantity');
 
-      if (qtyWrapper) {
-        qtyWrapper.style.display = "";
-      } else {
-        qtyInput.style.display = "";
-      }
       livePrice.innerHTML = "";
 
       container.innerHTML =
@@ -541,19 +512,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
 
       // Show the quantity input for variants without rule
-      const qtyWrapper =
-        qtyInput.closest(
-          '.product-form__quantity'
-        ) ||
-        qtyInput.closest(
-          '.quantity'
-        );
-
-      if (qtyWrapper) {
-        qtyWrapper.style.display = "";
-      } else {
-        qtyInput.style.display = "";
-      }
+      showQtyWrapper(qtyInput);
 
       // Reset regular price
       if (regularPrice && originalPriceText) {
@@ -631,20 +590,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     );
 
-    insertDropdownAfterQuantity(newDropdown);
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
+    insertDropdownAtQtyPosition(newDropdown, qtyInput);
 
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "none";
-    } else {
-      qtyInput.style.display = "none";
-    }
     qtyInput.value =
       data.rule.quantityDropdown[0];
 
@@ -670,19 +617,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   } else {
 
     qtyInput.value = 1;
-      const qtyWrapper =
-        qtyInput.closest(
-          '.product-form__quantity'
-        ) ||
-        qtyInput.closest(
-          '.quantity'
-        );
-
-      if (qtyWrapper) {
-        qtyWrapper.style.display = "";
-      } else {
-        qtyInput.style.display = "";
-      }
+    showQtyWrapper(qtyInput);
   }
   console.log(
     "Running price refresh"
