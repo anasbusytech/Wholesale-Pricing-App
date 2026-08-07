@@ -41,6 +41,10 @@ model WholesaleRule {
   quantityDropdown       Json?
 
   quantityInputEnabled   Boolean  @default(false)
+  
+  // NEW FIELDS - Add these
+  quantitySwatchEnabled  Boolean  @default(false)  // Enable/disable swatch
+  quantitySwatch         Json?                     // Array of swatch values
 
   widgetConfig           Json?
 
