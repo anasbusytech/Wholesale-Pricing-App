@@ -126,34 +126,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Set initial value
     dropdown.value = initialValue || dropdownValues[0];
 
-    // HIDE the original quantity input
+    // Hide only the original quantity input
     originalQtyInput.style.display = "none";
-    
-    // Hide the wrapper if it exists
-    if (originalQtyWrapper) {
-      originalQtyWrapper.style.display = "none";
-    }
 
-    // Insert dropdown BEFORE the quantity wrapper
+    // Keep the wrapper visible and insert dropdown inside it
     if (originalQtyWrapper) {
-      // Insert before the wrapper
-      originalQtyWrapper.parentNode.insertBefore(dropdown, originalQtyWrapper);
+
+      dropdown.className =
+        originalQtyWrapper.className + " wholesale-qty-select";
+
+      const computedStyle =
+        window.getComputedStyle(originalQtyInput);
+
+      dropdown.style.width =
+        computedStyle.width || "100%";
+
+      // Place dropdown where quantity input was
+      originalQtyWrapper.appendChild(dropdown);
+
     } else {
-      // Fallback: insert before the input
-      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput);
-    }
 
-    // Copy wrapper classes and styles to dropdown for consistent look
-    if (originalQtyWrapper) {
-      // Copy class names for styling
-      dropdown.className = originalQtyWrapper.className + ' wholesale-qty-select';
-      
-      // Copy computed styles
-      const computedStyle = window.getComputedStyle(originalQtyWrapper);
-      dropdown.style.margin = computedStyle.margin;
-      dropdown.style.padding = computedStyle.padding;
-      dropdown.style.width = computedStyle.width;
-      dropdown.style.display = 'block';
+      originalQtyInput.insertAdjacentElement(
+        "afterend",
+        dropdown
+      );
+
     }
 
     // Sync dropdown with quantity input
@@ -186,10 +183,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Show the original quantity input
     originalQtyInput.style.display = "";
     
-    // Show the wrapper if it exists
-    if (originalQtyWrapper) {
-      originalQtyWrapper.style.display = "";
-    }
   }
 
   // Check if this is a simple product (no variants) OR first load
