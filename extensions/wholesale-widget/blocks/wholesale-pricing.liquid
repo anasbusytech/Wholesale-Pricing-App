@@ -43,10 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "wholesale-pricing-content"
     );
 
-  const livePrice =
-    document.getElementById(
-      "wholesale-live-price"
-    );
+
   const regularPrice =
       document.querySelector(
         ".price-item--regular"
@@ -181,8 +178,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Show the quantity input for variants without rule
     showQtyWrapper(qtyInput);
 
-    // Clear live price
-    livePrice.innerHTML = "";
 
     // Reset regular price
     if (regularPrice && originalPriceText) {
@@ -370,7 +365,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!matchedSlab) {
 
-    livePrice.innerHTML = "";
 
     if (
         regularPrice &&
@@ -383,9 +377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
     }
 
-    livePrice.innerHTML =
-      `Wholesale Price:
-       Rs.${matchedSlab.price}`;
+
 
     document
       .querySelectorAll(
@@ -461,7 +453,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         oldDropdown.remove();
       }
 
-      livePrice.innerHTML = "";
 
       container.innerHTML =
         "<p>No wholesale pricing available for this variant.</p>";
