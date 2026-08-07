@@ -1,19 +1,17 @@
 <div class="wholesale-pricing-widget">
-
   <h3 id="wholesale-widget-heading">
     Wholesale Pricing
   </h3>
-    <div id="wholesale-live-price"
-        style="
-        font-size:24px;
-        font-weight:bold;
-        margin-bottom:15px;
+  <div id="wholesale-live-price"
+    style="
+      font-size:24px;
+      font-weight:bold;
+      margin-bottom:15px;
     ">
-    </div>
+  </div>
   <div id="wholesale-pricing-content">
     Loading...
   </div>
-
 </div>
 
 <script>
@@ -35,7 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.ShopifyAnalytics?.meta?.product?.id;
 
   let variantId =
-  document.querySelector('[name="id"]')?.value;
+    document.querySelector('[name="id"]')?.value;
   if (!productId) return;
 
   const container =
@@ -48,9 +46,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       "wholesale-live-price"
     );
   const regularPrice =
-      document.querySelector(
-        ".price-item--regular"
-      );
+    document.querySelector(
+      ".price-item--regular"
+    );
   const originalPriceText =
     regularPrice?.textContent;
   if (!container) return;
@@ -59,9 +57,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     `/apps/wholesale?productId=${productId}&variantId=${variantId}`
   );
   const qtyInput =
-  document.querySelector(
-    'input[name="quantity"]'
-  );
+    document.querySelector(
+      'input[name="quantity"]'
+    );
 
   if (!qtyInput) return;
   const data = await response.json();
@@ -74,6 +72,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
 
   const widget = document.querySelector(".wholesale-pricing-widget");
+
+  // Find the quantity wrapper in the theme
+  const qtyWrapper = 
+    qtyInput.closest('.product-form__quantity') ||
+    qtyInput.closest('.quantity') ||
+    qtyInput.closest('.product-form__input') ||
+    qtyInput.closest('.quantity-selector') ||
+    qtyInput.parentElement;
+
+  // Store the original quantity input for later reference
+  const originalQtyInput = qtyInput;
 
   // Check if this is a simple product (no variants) OR first load
   const isSimpleProduct = !document.querySelector('[name="id"]')?.options;
@@ -97,73 +106,103 @@ document.addEventListener("DOMContentLoaded", async () => {
     heading.textContent =
       widgetConfig.heading ||
       "Wholesale Pricing";
-  }    
+  }
+
+  // Function to create and insert dropdown at the quantity input position
+  function createDropdownAtQuantityPosition(dropdownValues, initialValue) {
+    // Remove any existing custom dropdown
+    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (existingDropdown) {
+      existingDropdown.remove();
+    }
+
+    // Create new dropdown
+    const dropdown = document.createElement("select");
+    dropdown.id = "wholesale-qty-dropdown";
+    dropdown.style.width = "100%";
+    dropdown.style.padding = "10px";
+    dropdown.style.fontSize = "16px";
+    dropdown.style.border = "1px solid #d9d9d9";
+    dropdown.style.borderRadius = "4px";
+    dropdown.style.backgroundColor = "#ffffff";
+
+    // Add options
+    dropdownValues.forEach((qty) => {
+      const option = document.createElement("option");
+      option.value = qty;
+      option.textContent = qty;
+      dropdown.appendChild(option);
+    });
+
+    // Set initial value
+    dropdown.value = initialValue || dropdownValues[0];
+
+    // Hide the original quantity input
+    if (qtyWrapper) {
+      // Store the original input's display style
+      originalQtyInput.style.display = "none";
+      
+      // Insert dropdown right next to the hidden input
+      // This ensures it appears exactly where the quantity input was
+      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput.nextSibling);
+      
+      // Style the dropdown to match the original input's container
+      dropdown.style.width = qtyWrapper.style.width || "100%";
+    } else {
+      // Fallback: insert after the quantity input
+      originalQtyInput.parentNode.insertBefore(dropdown, originalQtyInput.nextSibling);
+    }
+
+    // Sync dropdown with quantity input
+    dropdown.addEventListener("change", () => {
+      qtyInput.value = dropdown.value;
+      qtyInput.dispatchEvent(new Event("input", { bubbles: true }));
+      // Also trigger any theme-specific events
+      qtyInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    // Sync quantity input changes back to dropdown (if someone uses the input)
+    qtyInput.addEventListener("input", () => {
+      if (dropdown.value !== qtyInput.value) {
+        dropdown.value = qtyInput.value;
+      }
+    });
+
+    return dropdown;
+  }
+
+  // Function to show the original quantity input (for no-rule or dropdown disabled)
+  function showOriginalQuantityInput() {
+    // Remove any custom dropdown
+    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (existingDropdown) {
+      existingDropdown.remove();
+    }
+    
+    // Show the original quantity input
+    originalQtyInput.style.display = "";
+    if (qtyWrapper) {
+      qtyWrapper.style.display = "";
+    }
+  }
 
   if (!data.rule) {
     // This is for variants with no rule - show message with dropdown
     container.innerHTML =
       "<p>No wholesale pricing available for this variant.</p>";
     
-    // Create dropdown for variants without rule
+    // Create default dropdown at the quantity input position
     const quantities = [
       1,2,3,4,5,
       10,15,20,25,30,
       40,50,75,100
     ];
 
-    const dropdown =
-      document.createElement("select");
-
-    dropdown.id =
-      "wholesale-qty-dropdown";
-
-    quantities.forEach((qty) => {
-
-      const option =
-        document.createElement("option");
-
-      option.value = qty;
-      option.textContent = qty;
-
-      dropdown.appendChild(option);
-
-    });
-
-    container.appendChild(dropdown);
-
-    dropdown.value = "1";
+    createDropdownAtQuantityPosition(quantities, "1");
     qtyInput.value = "1";
 
-    dropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          dropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
-    );
-
     // Show the quantity input for variants without rule
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "";
-    } else {
-      qtyInput.style.display = "";
-    }
+    showOriginalQuantityInput();
 
     // Clear live price
     livePrice.innerHTML = "";
@@ -195,7 +234,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   `;
 
   slabs.forEach((slab) => {
-
     html += `
       <tr data-min="${slab.minQty}"
           data-max="${slab.maxQty}"
@@ -204,139 +242,43 @@ document.addEventListener("DOMContentLoaded", async () => {
         <td>Rs.${slab.price}</td>
       </tr>
     `;
-
   });
 
   html += "</table>";
-
   container.innerHTML = html;
 
-  const oldDropdown =
-    document.getElementById(
-      "wholesale-qty-dropdown"
-    );
-
-  if (oldDropdown) {
-    oldDropdown.remove();
-  }  
+  // Handle quantity dropdown based on rule configuration
   if (
     data.rule.quantityInputEnabled &&
     data.rule.quantityDropdown?.length
   ) {
-
-    const dropdown =
-      document.createElement("select");
-
-    dropdown.id =
-      "wholesale-qty-dropdown";
-
-    data.rule.quantityDropdown.forEach(
-      (qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-
-        option.textContent = qty;
-
-        dropdown.appendChild(option);
-
-      }
+    // Create custom dropdown at the quantity input position
+    createDropdownAtQuantityPosition(
+      data.rule.quantityDropdown,
+      data.rule.quantityDropdown[0]
     );
-
-    container.prepend(dropdown);
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "none";
-    } else {
-      qtyInput.style.display = "none";
-    }
-    qtyInput.value =
-      data.rule.quantityDropdown[0];
-
-    dropdown.value =
-      data.rule.quantityDropdown[0];
-
-    dropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          dropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
-    );
+    
+    qtyInput.value = data.rule.quantityDropdown[0];
   } else {
-    // Show quantity input if no dropdown in rule
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "";
-    } else {
-      qtyInput.style.display = "";
-    }
+    // Show the original quantity input
+    showOriginalQuantityInput();
+    qtyInput.value = 1;
   }
 
+  // Apply widget styling
   if (widget) {
-
     widget.style.backgroundColor =
       widgetConfig.backgroundColor ||
       "#ffffff";
-
     widget.style.border =
       `1px solid ${
         widgetConfig.borderColor ||
         "#d9d9d9"
       }`;
-
     widget.style.color =
       widgetConfig.textColor ||
       "#000000";
-
     widget.style.padding = "15px";
-  }
-
-
-  // Sync dropdown with quantity input
-  const dropdown =
-    document.getElementById(
-      "wholesale-qty-dropdown"
-    );
-
-  if (
-    dropdown &&
-    qtyInput
-  ) {
-    dropdown.addEventListener(
-      "change",
-      () => {
-        qtyInput.value =
-          dropdown.value;
-        qtyInput.dispatchEvent(
-          new Event("input")
-        );
-      }
-    );
   }
 
   function updateWholesalePrice() {
@@ -350,22 +292,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     let matchedSlab = null;
 
     for (const slab of slabs) {
-
-    if (
+      if (
         slab.maxQty === null &&
         qty >= slab.minQty
-    ) {
+      ) {
         matchedSlab = slab;
         break;
-    }
+      }
 
-    if (
+      if (
         qty >= slab.minQty &&
         qty <= slab.maxQty
-    ) {
+      ) {
         matchedSlab = slab;
         break;
-    }
+      }
     }
 
     document
@@ -377,18 +318,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
     if (!matchedSlab) {
-
-    livePrice.innerHTML = "";
-
-    if (
+      livePrice.innerHTML = "";
+      if (
         regularPrice &&
         originalPriceText
-    ) {
+      ) {
         regularPrice.textContent =
-        originalPriceText;
-    }
-
-    return;
+          originalPriceText;
+      }
+      return;
     }
 
     livePrice.innerHTML =
@@ -400,10 +338,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         "#wholesale-pricing-content tr"
       )
       .forEach((row) => {
-
         if (
           Number(row.dataset.min) ===
-            matchedSlab.minQty
+          matchedSlab.minQty
         ) {
           row.style.background =
             widgetConfig.highlightColor ||
@@ -411,41 +348,46 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       });
 
+    const regularPrices =
+      document.querySelectorAll(
+        ".price-item--regular"
+      );
 
-      const regularPrices =
-        document.querySelectorAll(
-          ".price-item--regular"
-        );
+    regularPrices.forEach((el) => {
+      el.textContent =
+        `Rs.${matchedSlab.price} PKR`;
+    });
 
-      regularPrices.forEach((el) => {
+    const salePrice =
+      document.querySelector(
+        ".price-item--sale"
+      );
 
-        el.textContent =
-          `Rs.${matchedSlab.price} PKR`;
-
-      });
-
-      const salePrice =
-        document.querySelector(
-          ".price-item--sale"
-        );
-
-      if (salePrice) {
-
-        salePrice.textContent =
-          `Rs.${matchedSlab.price} PKR`;
-
-      }
+    if (salePrice) {
+      salePrice.textContent =
+        `Rs.${matchedSlab.price} PKR`;
+    }
   }
 
+  // Listen for quantity input changes
   qtyInput.addEventListener(
     "input",
     updateWholesalePrice
   );
 
+  // Also listen for changes on the custom dropdown
+  const dropdown = document.getElementById("wholesale-qty-dropdown");
+  if (dropdown) {
+    dropdown.addEventListener("change", () => {
+      updateWholesalePrice();
+    });
+  }
+
+  // Initial price update
   updateWholesalePrice();
 
+  // Handle variant changes
   document.addEventListener("change", async (e) => {
-
     if (e.target.name !== "id") return;
 
     const newVariantId = e.target.value;
@@ -459,14 +401,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Variant Changed", data);
 
     if (!data.rule) {
-
-      const oldDropdown =
-        document.getElementById(
-          "wholesale-qty-dropdown"
-        );
-
-      if (oldDropdown) {
-        oldDropdown.remove();
+      // Remove any custom dropdown
+      const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+      if (existingDropdown) {
+        existingDropdown.remove();
       }
 
       livePrice.innerHTML = "";
@@ -474,65 +412,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       container.innerHTML =
         "<p>No wholesale pricing available for this variant.</p>";
 
+      // Create default dropdown at quantity position
       const quantities = [
         1,2,3,4,5,
         10,15,20,25,30,
         40,50,75,100
       ];
 
-      const dropdown =
-        document.createElement("select");
-
-      dropdown.id =
-        "wholesale-qty-dropdown";
-
-      quantities.forEach((qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-        option.textContent = qty;
-
-        dropdown.appendChild(option);
-
-      });
-
-      container.appendChild(dropdown);
-
-      dropdown.value = "1";
+      createDropdownAtQuantityPosition(quantities, "1");
       qtyInput.value = "1";
 
-      dropdown.addEventListener(
-        "change",
-        () => {
-
-          qtyInput.value =
-            dropdown.value;
-
-          qtyInput.dispatchEvent(
-            new Event("input", {
-              bubbles: true,
-            })
-          );
-
-        }
-      );
-
-      // Show the quantity input for variants without rule
-      const qtyWrapper =
-        qtyInput.closest(
-          '.product-form__quantity'
-        ) ||
-        qtyInput.closest(
-          '.quantity'
-        );
-
-      if (qtyWrapper) {
-        qtyWrapper.style.display = "";
-      } else {
-        qtyInput.style.display = "";
-      }
+      // Show the original quantity input
+      showOriginalQuantityInput();
 
       // Reset regular price
       if (regularPrice && originalPriceText) {
@@ -556,7 +447,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
 
     slabs.forEach((slab) => {
-
       html += `
         <tr data-min="${slab.minQty}"
             data-max="${slab.maxQty}"
@@ -569,114 +459,49 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td>Rs.${slab.price}</td>
         </tr>
       `;
-
     });
 
     html += "</table>";
+    container.innerHTML = html;
 
-  container.innerHTML = html;
-
-  const oldDropdown =
-    document.getElementById(
-      "wholesale-qty-dropdown"
-    );
-
-  if (oldDropdown) {
-    oldDropdown.remove();
-  }
-
-  if (
-    data.rule.quantityInputEnabled &&
-    data.rule.quantityDropdown?.length
-  ) {
-
-    const newDropdown =
-      document.createElement("select");
-
-    newDropdown.id =
-      "wholesale-qty-dropdown";
-
-    data.rule.quantityDropdown.forEach(
-      (qty) => {
-
-        const option =
-          document.createElement("option");
-
-        option.value = qty;
-        option.textContent = qty;
-
-        newDropdown.appendChild(option);
-
-      }
-    );
-
-    container.prepend(newDropdown);
-    const qtyWrapper =
-      qtyInput.closest(
-        '.product-form__quantity'
-      ) ||
-      qtyInput.closest(
-        '.quantity'
-      );
-
-    if (qtyWrapper) {
-      qtyWrapper.style.display = "none";
-    } else {
-      qtyInput.style.display = "none";
+    // Remove any existing dropdown
+    const existingDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (existingDropdown) {
+      existingDropdown.remove();
     }
-    qtyInput.value =
-      data.rule.quantityDropdown[0];
 
-    newDropdown.value =
-      data.rule.quantityDropdown[0];
+    if (
+      data.rule.quantityInputEnabled &&
+      data.rule.quantityDropdown?.length
+    ) {
+      // Create custom dropdown at quantity position
+      createDropdownAtQuantityPosition(
+        data.rule.quantityDropdown,
+        data.rule.quantityDropdown[0]
+      );
+      
+      qtyInput.value = data.rule.quantityDropdown[0];
+    } else {
+      // Show original quantity input
+      showOriginalQuantityInput();
+      qtyInput.value = 1;
+    }
 
-    newDropdown.addEventListener(
-      "change",
-      () => {
-
-        qtyInput.value =
-          newDropdown.value;
-
-        qtyInput.dispatchEvent(
-          new Event("input", {
-            bubbles: true,
-          })
-        );
-
-      }
+    console.log(
+      "Running price refresh"
     );
-
-  } else {
-
-    qtyInput.value = 1;
-      const qtyWrapper =
-        qtyInput.closest(
-          '.product-form__quantity'
-        ) ||
-        qtyInput.closest(
-          '.quantity'
-        );
-
-      if (qtyWrapper) {
-        qtyWrapper.style.display = "";
-      } else {
-        qtyInput.style.display = "";
-      }
-  }
-  console.log(
-    "Running price refresh"
-  );
-  updateWholesalePrice();
-
+    updateWholesalePrice();
   });
+
   function getQtyInput() {
     return document.querySelector('input[name="quantity"]');
-  }   
+  }
+
   const form = qtyInput?.closest("form");
 
   form?.addEventListener("submit", () => {
     qtyInput.value = qtyInput.value;
-  });  
+  });
 });
 </script>
 
