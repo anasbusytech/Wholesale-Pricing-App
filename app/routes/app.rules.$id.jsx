@@ -23,6 +23,7 @@ import {
   Banner,
   RadioButton,
   Box,
+  Icon, // Added Icon import to match Create page
 } from "@shopify/polaris";
 import {
   Form,
@@ -372,8 +373,10 @@ export async function action({ request, params }) {
     },
   });
 
+  // CREATE SHOPIFY DISCOUNT if enabled and no discount exists
   if (enabled && !existingRule?.discountId) {
     const { admin } = await authenticate.admin(request);
+
     const response = await admin.graphql(`
       mutation discountAutomaticAppCreate(
         $automaticAppDiscount: DiscountAutomaticAppInput!
@@ -384,12 +387,21 @@ export async function action({ request, params }) {
           automaticAppDiscount {
             discountId
           }
+          userErrors {
+            field
+            message
+          }
         }
       }
     `, {
       variables: {
         automaticAppDiscount: {
           title: name,
+          combinesWith: {
+            productDiscounts: true,
+            orderDiscounts: false,
+            shippingDiscounts: false,
+          },
           functionHandle: "wholesale-discount",
           startsAt: new Date(),
           metafields: [
@@ -398,13 +410,13 @@ export async function action({ request, params }) {
               key: "function-configuration",
               type: "json",
               value: JSON.stringify({
-                variantIds: products.map(p => p.variantId),
-                slabs: slabs.map(slab => ({
+                variantIds: products.map((product) => product.variantId),
+                slabs: slabs.map((slab) => ({
                   minQty: Number(slab.minQty),
                   maxQty: slab.maxQty ? Number(slab.maxQty) : null,
                   discountPrice: Number(slab.price),
                 })),
-              }),
+              })
             },
           ],
         },
@@ -412,6 +424,8 @@ export async function action({ request, params }) {
     });
 
     const data = await response.json();
+    console.log(JSON.stringify(data, null, 2));
+
     const discountId = data.data.discountAutomaticAppCreate.automaticAppDiscount.discountId;
 
     await prisma.wholesaleRule.update({
@@ -426,12 +440,17 @@ export async function action({ request, params }) {
     return redirect("/app/rules");
   }
 
+  // DELETE Shopify discount if disabled
   if (existingRule?.discountId && !enabled) {
     const { admin } = await authenticate.admin(request);
     await admin.graphql(`
       mutation discountAutomaticDelete($id: ID!) {
         discountAutomaticDelete(id: $id) {
           deletedAutomaticDiscountId
+          userErrors {
+            field
+            message
+          }
         }
       }
     `, {
@@ -452,8 +471,10 @@ export async function action({ request, params }) {
     return redirect("/app/rules");
   }
 
-  if (existingRule.discountId && enabled) {
+  // UPDATE Shopify discount if enabled and discount exists
+  if (existingRule?.discountId && enabled) {
     const { admin } = await authenticate.admin(request);
+
     const response = await admin.graphql(`
       mutation discountAutomaticAppUpdate(
         $id: ID!,
@@ -482,6 +503,8 @@ export async function action({ request, params }) {
             orderDiscounts: false,
             shippingDiscounts: false,
           },
+          functionHandle: "wholesale-discount",
+          startsAt: new Date(),
           metafields: [
             {
               namespace: "app",
@@ -666,7 +689,6 @@ export default function EditRulePage() {
   }
 
   async function openProductPicker() {
-    setSkippedCount(0);
     const selected = await shopify.resourcePicker({
       type: "product",
       multiple: true,
@@ -768,7 +790,7 @@ export default function EditRulePage() {
                     </Banner>
                   )}
 
-                  <Button submit={false} onClick={openProductPicker}>
+                  <Button onClick={openProductPicker}>
                     Select Products
                   </Button>
 
@@ -781,9 +803,7 @@ export default function EditRulePage() {
                   {products.map((product) => (
                     <Card key={product.variantId}>
                       <InlineStack align="space-between" blockAlign="center">
-                        <Text as="p">
-                          {product.title}
-                        </Text>
+                        <Text as="p">{product.title}</Text>
                         <Button
                           tone="critical"
                           size="slim"
@@ -866,7 +886,7 @@ export default function EditRulePage() {
                         </SortableContext>
                       </DndContext>
 
-                      <Button submit={false} onClick={addDropdownValue}>
+                      <Button onClick={addDropdownValue}>
                         Add Dropdown Value
                       </Button>
                     </BlockStack>
@@ -902,7 +922,7 @@ export default function EditRulePage() {
                         </SortableContext>
                       </DndContext>
 
-                      <Button submit={false} onClick={addSwatchValue}>
+                      <Button onClick={addSwatchValue}>
                         Add Swatch Value
                       </Button>
 
@@ -1006,7 +1026,7 @@ export default function EditRulePage() {
                     </InlineStack>
                   ))}
 
-                  <Button submit={false} onClick={addSlab}>
+                  <Button onClick={addSlab}>
                     Add Slab
                   </Button>
                 </BlockStack>
@@ -1030,11 +1050,11 @@ export default function EditRulePage() {
                     type="submit"
                     name="action"
                     value="delete"
-                    onClick={(e)=>{
-                      if(!window.confirm("Delete this rule?")){
-                          e.preventDefault();
+                    onClick={(e) => {
+                      if (!window.confirm("Delete this rule?")) {
+                        e.preventDefault();
                       }
-                    }}                    
+                    }}
                     style={{
                       background: "red",
                       color: "white",
