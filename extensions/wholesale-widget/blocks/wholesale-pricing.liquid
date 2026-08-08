@@ -1,12 +1,10 @@
 <div class="wholesale-pricing-widget">
-
   <h3 id="wholesale-widget-heading">
     Wholesale Pricing
   </h3>
   <div id="wholesale-pricing-content">
     Loading...
   </div>
-
 </div>
 
 <style>
@@ -117,6 +115,42 @@ div#wholesale-pricing-content tbody {
 
 .wholesale-dropdown-options::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* Swatch Styles */
+.wholesale-swatch-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.wholesale-swatch-button {
+  padding: 8px 16px;
+  border: 2px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 40px;
+  text-align: center;
+}
+
+.wholesale-swatch-button:hover {
+  border-color: #999;
+  background: #f5f5f5;
+}
+
+.wholesale-swatch-button.active {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+.wholesale-swatch-button.active:hover {
+  background: #333333;
 }
 </style>
 
@@ -289,6 +323,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     return dropdown;
   }
 
+  // Creates swatch buttons
+  function createSwatchButtons(values, initialValue, onChangeCallback) {
+    const container = document.createElement('div');
+    container.className = 'wholesale-swatch-container';
+    container.id = 'wholesale-swatch-container';
+
+    values.forEach((value) => {
+      const button = document.createElement('button');
+      button.className = 'wholesale-swatch-button';
+      if (value === (initialValue || values[0])) {
+        button.classList.add('active');
+      }
+      button.textContent = value;
+      button.dataset.value = value;
+
+      button.addEventListener('click', () => {
+        // Update active state
+        container.querySelectorAll('.wholesale-swatch-button').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        button.classList.add('active');
+
+        // Update quantity input
+        qtyInput.value = value;
+        qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+        qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Call callback if provided
+        if (onChangeCallback) {
+          onChangeCallback(value);
+        }
+
+        // Trigger price update
+        if (typeof updateWholesalePrice === 'function') {
+          updateWholesalePrice();
+        }
+      });
+
+      container.appendChild(button);
+    });
+
+    return container;
+  }
+
   // Inserts the dropdown right where the theme's quantity
   // switcher is, and hides the original switcher — so visually
   // the dropdown *replaces* it instead of appearing elsewhere.
@@ -298,11 +376,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     wrapper.style.display = "none";
   }
 
+  // Inserts swatch buttons at the top of variant-selects wrapper
+  function insertSwatchAtVariantPosition(swatchContainer) {
+    // Find the variant-selects wrapper
+    const variantSelects = document.querySelector('.variant-selects') || 
+                          document.querySelector('[class*="variant-selects"]') ||
+                          document.querySelector('.product-form__variants');
+    
+    if (variantSelects) {
+      // Insert as first child
+      variantSelects.insertBefore(swatchContainer, variantSelects.firstChild);
+    } else {
+      // Fallback: insert before the quantity wrapper
+      const wrapper = getQtyWrapper(qtyInput);
+      wrapper.parentElement.insertBefore(swatchContainer, wrapper);
+    }
+  }
+
   // Restores the theme's original quantity switcher
-  // (used when there's no dropdown to show instead).
   function showQtyWrapper(input) {
     const wrapper = getQtyWrapper(input);
     wrapper.style.display = "";
+  }
+
+  // Hides the theme's original quantity switcher
+  function hideQtyWrapper(input) {
+    const wrapper = getQtyWrapper(input);
+    wrapper.style.display = "none";
   }
 
   // Check if this is a simple product (no variants) OR first load
@@ -392,19 +492,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   container.innerHTML = html;
 
-  const oldDropdown =
-    document.getElementById(
-      "wholesale-qty-dropdown"
-    );
-
+  // Remove any existing dropdown or swatch
+  const oldDropdown = document.getElementById("wholesale-qty-dropdown");
   if (oldDropdown) {
     oldDropdown.remove();
-  }  
-  if (
-    data.rule.quantityInputEnabled &&
-    data.rule.quantityDropdown?.length
-  ) {
+  }
 
+  const oldSwatch = document.getElementById("wholesale-swatch-container");
+  if (oldSwatch) {
+    oldSwatch.remove();
+  }
+
+  // Check if swatch is enabled
+  if (data.rule.quantitySwatchEnabled && data.rule.quantitySwatch?.length) {
+    // Create swatch buttons
+    const swatchContainer = createSwatchButtons(
+      data.rule.quantitySwatch,
+      data.rule.quantitySwatch[0]
+    );
+
+    // Insert swatch at variant position
+    insertSwatchAtVariantPosition(swatchContainer);
+
+    // Set initial quantity
+    qtyInput.value = data.rule.quantitySwatch[0];
+
+    // HIDE the default quantity switcher
+    hideQtyWrapper(qtyInput);
+
+  } else if (data.rule.quantityInputEnabled && data.rule.quantityDropdown?.length) {
+    // Dropdown mode
     const dropdown = createCustomDropdown(
       data.rule.quantityDropdown,
       data.rule.quantityDropdown[0]
@@ -412,8 +529,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     insertDropdownAtQtyPosition(dropdown, qtyInput);
 
-    qtyInput.value =
-      data.rule.quantityDropdown[0];
+    qtyInput.value = data.rule.quantityDropdown[0];
 
   } else {
     // Show quantity input if no dropdown in rule
@@ -563,6 +679,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         oldDropdown.remove();
       }
 
+      const oldSwatch =
+        document.getElementById(
+          "wholesale-swatch-container"
+        );
+
+      if (oldSwatch) {
+        oldSwatch.remove();
+      }
 
       container.innerHTML =
         "<p>No wholesale pricing available for this variant.</p>";
@@ -632,7 +756,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     oldDropdown.remove();
   }
 
-  if (
+  const oldSwatch =
+    document.getElementById(
+      "wholesale-swatch-container"
+    );
+
+  if (oldSwatch) {
+    oldSwatch.remove();
+  }
+
+  // Check if swatch is enabled for the new variant
+  if (data.rule.quantitySwatchEnabled && data.rule.quantitySwatch?.length) {
+    // Create swatch buttons
+    const swatchContainer = createSwatchButtons(
+      data.rule.quantitySwatch,
+      data.rule.quantitySwatch[0]
+    );
+
+    // Insert swatch at variant position
+    insertSwatchAtVariantPosition(swatchContainer);
+
+    // Set initial quantity
+    qtyInput.value = data.rule.quantitySwatch[0];
+
+    // HIDE the default quantity switcher
+    hideQtyWrapper(qtyInput);
+
+  } else if (
     data.rule.quantityInputEnabled &&
     data.rule.quantityDropdown?.length
   ) {
@@ -646,6 +796,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     qtyInput.value =
       data.rule.quantityDropdown[0];
+
+    // Show the quantity wrapper for dropdown
+    showQtyWrapper(qtyInput);
 
   } else {
 
