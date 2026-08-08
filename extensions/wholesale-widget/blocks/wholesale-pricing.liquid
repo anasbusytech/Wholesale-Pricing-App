@@ -155,7 +155,6 @@ div#wholesale-pricing-content tbody {
 
 /* No rule message styling */
 .wholesale-no-rule-message {
-  padding: 10px 0;
   color: #666;
   font-size: 14px;
 }
@@ -448,11 +447,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       // No rule - show generic swatch + message
       widget.classList.add('no-rule');
       
-      // Show heading but hide it via CSS
-      if (heading) {
-        heading.textContent = "Wholesale Pricing";
-      }
-
       // Show message with generic swatch
       container.innerHTML = `
         <div class="wholesale-no-rule-message">
