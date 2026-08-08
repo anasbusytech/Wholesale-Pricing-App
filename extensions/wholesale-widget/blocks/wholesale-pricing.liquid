@@ -152,6 +152,18 @@ div#wholesale-pricing-content tbody {
 .wholesale-swatch-button.active:hover {
   background: #333333;
 }
+
+/* No rule message styling */
+.wholesale-no-rule-message {
+  padding: 10px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Hide heading when no rule */
+.wholesale-pricing-widget.no-rule #wholesale-widget-heading {
+  display: none;
+}
 </style>
 
 <script>
@@ -430,32 +442,46 @@ document.addEventListener("DOMContentLoaded", async () => {
   }    
 
   if (!data.rule) {
-    // This is for variants with no rule - show message with dropdown
-    container.innerHTML =
-      "<p>No wholesale pricing available for this variant.</p>";
+    // No rule - show only message without heading and dropdown
+    // Add class to hide heading
+    widget.classList.add('no-rule');
     
-    // Create dropdown for variants without rule
-    const quantities = [
-      1,2,3,4,5,
-      10,15,20,25,30,
-      40,50,75,100
-    ];
+    // Show only the message
+    container.innerHTML = `
+      <div class="wholesale-no-rule-message">
+        No wholesale pricing available for this variant.
+      </div>
+    `;
+    
+    // Remove any existing dropdown or swatch
+    const oldDropdown = document.getElementById("wholesale-qty-dropdown");
+    if (oldDropdown) {
+      oldDropdown.remove();
+    }
 
-    const dropdown = createCustomDropdown(quantities, '1');
-    container.appendChild(dropdown);
+    const oldSwatch = document.getElementById("wholesale-swatch-container");
+    if (oldSwatch) {
+      oldSwatch.remove();
+    }
 
-    qtyInput.value = "1";
-
-    // Show the quantity input for variants without rule
+    // Show the default quantity input
     showQtyWrapper(qtyInput);
 
-    // Reset regular price
+    // Reset price
     if (regularPrice && originalPriceText) {
       regularPrice.textContent = originalPriceText;
     }
 
+    // Ensure widget is visible
+    if (widget) {
+      widget.style.display = "";
+    }
+
     return;
   }
+
+  // If we have a rule, remove no-rule class and show heading
+  widget.classList.remove('no-rule');
 
   // If we have a rule, show the widget
   if (widget) {
@@ -669,7 +695,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("Variant Changed", data);
 
     if (!data.rule) {
-
+      // No rule - show only message without heading and dropdown
+      widget.classList.add('no-rule');
+      
       const oldDropdown =
         document.getElementById(
           "wholesale-qty-dropdown"
@@ -688,30 +716,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         oldSwatch.remove();
       }
 
-      container.innerHTML =
-        "<p>No wholesale pricing available for this variant.</p>";
+      container.innerHTML = `
+        <div class="wholesale-no-rule-message">
+          No wholesale pricing available for this variant.
+        </div>
+      `;
 
-      const quantities = [
-        1,2,3,4,5,
-        10,15,20,25,30,
-        40,50,75,100
-      ];
-
-      const dropdown = createCustomDropdown(quantities, '1');
-      container.appendChild(dropdown);
-
-      qtyInput.value = "1";
-
-      // Show the quantity input for variants without rule
+      // Show the default quantity input
       showQtyWrapper(qtyInput);
 
-      // Reset regular price
+      // Reset price
       if (regularPrice && originalPriceText) {
         regularPrice.textContent = originalPriceText;
       }
 
+      // Ensure widget is visible
+      if (widget) {
+        widget.style.display = "";
+      }
+
       return;
     }
+
+    // If we have a rule, remove no-rule class
+    widget.classList.remove('no-rule');
 
     slabs = data.rule.slabs;
 
