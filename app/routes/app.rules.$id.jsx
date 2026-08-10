@@ -23,7 +23,7 @@ import {
   Banner,
   RadioButton,
   Box,
-  Icon, // Added Icon import to match Create page
+  Icon,
 } from "@shopify/polaris";
 import {
   Form,
@@ -142,6 +142,58 @@ function SortableSwatchItem({
   );
 }
 
+// NEW: live preview of the swatch button in its normal, hover, and
+// active states, using the colors currently set in the form - so the
+// merchant can see what they're picking before saving.
+function SwatchColorPreview({ colors }) {
+  const [hovered, setHovered] = useState(false);
+
+  const baseButtonStyle = {
+    padding: "8px 16px",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: 500,
+    cursor: "pointer",
+    minWidth: "40px",
+    textAlign: "center",
+  };
+
+  return (
+    <InlineStack gap="300" blockAlign="center">
+      <div>
+        <Text as="p" tone="subdued" variant="bodySm">Normal / hover</Text>
+        <button
+          type="button"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{
+            ...baseButtonStyle,
+            border: `2px solid ${hovered ? colors.hoverBorder : colors.border}`,
+            background: hovered ? colors.hover : colors.bg,
+            color: colors.text,
+          }}
+        >
+          5 pcs
+        </button>
+      </div>
+      <div>
+        <Text as="p" tone="subdued" variant="bodySm">Active (selected)</Text>
+        <button
+          type="button"
+          style={{
+            ...baseButtonStyle,
+            border: `2px solid ${colors.activeBorder}`,
+            background: colors.active,
+            color: colors.activeText,
+          }}
+        >
+          10 pcs
+        </button>
+      </div>
+    </InlineStack>
+  );
+}
+
 export async function loader({ request, params }) {
   const rule = await prisma.wholesaleRule.findUnique({
     where: {
@@ -242,6 +294,19 @@ export async function action({ request, params }) {
   const borderColor = formData.get("borderColor");
   const textColor = formData.get("textColor");
   const highlightColor = formData.get("highlightColor");
+  
+  // NEW: swatch color fields - these feed the widget's
+  // .wholesale-swatch-button CSS variables (background/border/text,
+  // hover, and active states).
+  const swatchColor = formData.get("swatchColor");
+  const swatchBorderColor = formData.get("swatchBorderColor");
+  const swatchTextColor = formData.get("swatchTextColor");
+  const swatchHoverColor = formData.get("swatchHoverColor");
+  const swatchHoverBorderColor = formData.get("swatchHoverBorderColor");
+  const swatchActiveColor = formData.get("swatchActiveColor");
+  const swatchActiveBorderColor = formData.get("swatchActiveBorderColor");
+  const swatchActiveTextColor = formData.get("swatchActiveTextColor");
+  
   const actionType = formData.get("action");
 
   if (actionType === "delete") {
@@ -356,6 +421,16 @@ export async function action({ request, params }) {
         borderColor,
         textColor,
         highlightColor,
+        // NEW: swatch styling, read by the storefront widget's
+        // applySwatchTheme() and applied as CSS variables.
+        swatchColor,
+        swatchBorderColor,
+        swatchTextColor,
+        swatchHoverColor,
+        swatchHoverBorderColor,
+        swatchActiveColor,
+        swatchActiveBorderColor,
+        swatchActiveTextColor,
       },
       products: {
         create: products.map((variant) => ({
@@ -588,6 +663,33 @@ export default function EditRulePage() {
     rule.widgetConfig?.highlightColor || "#d1fadf"
   );
 
+  // NEW: swatch color state - defaults match the widget's own CSS
+  // fallback values, so an unedited rule looks identical to before.
+  const [swatchColor, setSwatchColor] = useState(
+    rule.widgetConfig?.swatchColor || "#ffffff"
+  );
+  const [swatchBorderColor, setSwatchBorderColor] = useState(
+    rule.widgetConfig?.swatchBorderColor || "#d9d9d9"
+  );
+  const [swatchTextColor, setSwatchTextColor] = useState(
+    rule.widgetConfig?.swatchTextColor || "#000000"
+  );
+  const [swatchHoverColor, setSwatchHoverColor] = useState(
+    rule.widgetConfig?.swatchHoverColor || "#f5f5f5"
+  );
+  const [swatchHoverBorderColor, setSwatchHoverBorderColor] = useState(
+    rule.widgetConfig?.swatchHoverBorderColor || "#999999"
+  );
+  const [swatchActiveColor, setSwatchActiveColor] = useState(
+    rule.widgetConfig?.swatchActiveColor || "#000000"
+  );
+  const [swatchActiveBorderColor, setSwatchActiveBorderColor] = useState(
+    rule.widgetConfig?.swatchActiveBorderColor || "#000000"
+  );
+  const [swatchActiveTextColor, setSwatchActiveTextColor] = useState(
+    rule.widgetConfig?.swatchActiveTextColor || "#ffffff"
+  );
+
   // Initialize products with titles from loader data
   const [products, setProducts] = useState(
     rule.products.map((p) => ({
@@ -764,6 +866,15 @@ export default function EditRulePage() {
                 <input type="hidden" name="borderColor" value={borderColor} />
                 <input type="hidden" name="textColor" value={textColor} />
                 <input type="hidden" name="highlightColor" value={highlightColor} />
+                {/* NEW: swatch color hidden fields, submitted with the rest of the form */}
+                <input type="hidden" name="swatchColor" value={swatchColor} />
+                <input type="hidden" name="swatchBorderColor" value={swatchBorderColor} />
+                <input type="hidden" name="swatchTextColor" value={swatchTextColor} />
+                <input type="hidden" name="swatchHoverColor" value={swatchHoverColor} />
+                <input type="hidden" name="swatchHoverBorderColor" value={swatchHoverBorderColor} />
+                <input type="hidden" name="swatchActiveColor" value={swatchActiveColor} />
+                <input type="hidden" name="swatchActiveBorderColor" value={swatchActiveBorderColor} />
+                <input type="hidden" name="swatchActiveTextColor" value={swatchActiveTextColor} />
                 <input type="hidden" name="products" value={JSON.stringify(products)} />
                 <input type="hidden" name="slabs" value={JSON.stringify(slabs)} />
                 <input type="hidden" name="quantityInputType" value={quantityInputType} />
@@ -926,27 +1037,111 @@ export default function EditRulePage() {
                         Add Swatch Value
                       </Button>
 
+                      {/* NEW: Swatch color settings */}
+                      <BlockStack gap="200">
+                        <Text as="h3" variant="headingSm">
+                          Swatch Colors
+                        </Text>
+                        <Text as="p" tone="subdued">
+                          Colors for the swatch buttons in their normal, hover, and selected (active) states.
+                        </Text>
+
+                        <InlineStack gap="300" wrap={true}>
+                          <TextField
+                            label="Background"
+                            value={swatchColor}
+                            onChange={setSwatchColor}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Border"
+                            value={swatchBorderColor}
+                            onChange={setSwatchBorderColor}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Text"
+                            value={swatchTextColor}
+                            onChange={setSwatchTextColor}
+                            autoComplete="off"
+                          />
+                        </InlineStack>
+
+                        <InlineStack gap="300" wrap={true}>
+                          <TextField
+                            label="Hover Background"
+                            value={swatchHoverColor}
+                            onChange={setSwatchHoverColor}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Hover Border"
+                            value={swatchHoverBorderColor}
+                            onChange={setSwatchHoverBorderColor}
+                            autoComplete="off"
+                          />
+                        </InlineStack>
+
+                        <InlineStack gap="300" wrap={true}>
+                          <TextField
+                            label="Active Background"
+                            value={swatchActiveColor}
+                            onChange={setSwatchActiveColor}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Active Border"
+                            value={swatchActiveBorderColor}
+                            onChange={setSwatchActiveBorderColor}
+                            autoComplete="off"
+                          />
+                          <TextField
+                            label="Active Text"
+                            value={swatchActiveTextColor}
+                            onChange={setSwatchActiveTextColor}
+                            autoComplete="off"
+                          />
+                        </InlineStack>
+                      </BlockStack>
+
                       {/* Preview of how swatch will look */}
                       <Box padding="400" background="bg-surface" borderRadius="200">
                         <Text as="h4" variant="headingXs">Preview:</Text>
-                        <InlineStack gap="200" wrap={true}>
-                          {swatchValues.map((item, index) => (
-                            item.value && (
-                              <Box
-                                key={index}
-                                padding="200"
-                                background="bg-surface-secondary"
-                                borderRadius="200"
-                                borderWidth="1"
-                                borderColor="border"
-                              >
-                                <Text as="span" variant="bodyMd">
-                                  {item.value}
-                                </Text>
-                              </Box>
-                            )
-                          ))}
-                        </InlineStack>
+                        <Box paddingBlockStart="300">
+                          <SwatchColorPreview
+                            colors={{
+                              bg: swatchColor,
+                              border: swatchBorderColor,
+                              text: swatchTextColor,
+                              hover: swatchHoverColor,
+                              hoverBorder: swatchHoverBorderColor,
+                              active: swatchActiveColor,
+                              activeBorder: swatchActiveBorderColor,
+                              activeText: swatchActiveTextColor,
+                            }}
+                          />
+                        </Box>
+                        <Box paddingBlockStart="400">
+                          <Text as="p" tone="subdued" variant="bodySm">All values:</Text>
+                          <InlineStack gap="200" wrap={true}>
+                            {swatchValues.map((item, index) => (
+                              item.value && (
+                                <Box
+                                  key={index}
+                                  padding="200"
+                                  background="bg-surface-secondary"
+                                  borderRadius="200"
+                                  borderWidth="1"
+                                  borderColor="border"
+                                >
+                                  <Text as="span" variant="bodyMd">
+                                    {item.value}
+                                  </Text>
+                                </Box>
+                              )
+                            ))}
+                          </InlineStack>
+                        </Box>
                       </Box>
                     </BlockStack>
                   )}

@@ -3,50 +3,87 @@
     Wholesale Pricing
   </h3>
   <div id="wholesale-pricing-content">
-    <div class="wholesale-loading">Loading...</div>
+    <div class="wholesale-skeleton"></div>
   </div>
 </div>
 
 <style>
-.wholesale-pricing-widget {
-  margin-block: 15px;
-  min-height: 100px; /* Prevent layout shift */
-  transition: all 0.3s ease;
+.wholesale-pricing-widget{
+    border: 1px solid #d9d9d9;
+    color: #000000;
+    padding: 15px;
+    border-radius: 10px;  
+    margin-block:15px;
+    /* FIX #1 (layout shift): reserve space up front so the widget
+       doesn't jump when the skeleton is replaced with real content. */
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;    
+    flex-direction:column;
 }
 .wholesale-pricing-widget.no-rule #wholesale-widget-heading {
-  display: none;
+    display: none;
 }
-h3#wholesale-widget-heading {
-  font-size: 20px;
+h3#wholesale-widget-heading{
+    font-size:20px;
 }
 div#wholesale-live-price {
-  font-size: 16px !important;
-  margin: 0 !important;
+    font-size: 16px !important;
+    margin: 0 !important;
 }
 div#wholesale-pricing-content table {
-  margin-top: 15px;
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 10px;
-  overflow: hidden;
-}
-div#wholesale-pricing-content table th {
-  text-align: left;
-  padding: 10px 12px;
-  background: #f5f5f5;
-  font-weight: 600;
-}
-div#wholesale-pricing-content table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
+    margin-top: 15px;
 }
 div#wholesale-pricing-content tbody {
-  font-size: 14px;
+    font-size:14px;
 }
-.wholesale-loading {
-  color: #999;
-  font-size: 14px;
-  padding: 10px 0;
+
+/* FIX #1: skeleton loader shown while the initial fetch is in flight */
+.wholesale-skeleton {
+  height:44px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #eee 25%, #ddd 50%, #eee 75%);
+    background-size: 200% 100%;
+    animation: wholesale-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes wholesale-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* FIX #7: skeleton shown right where the swatch/dropdown will land,
+   in place of the native quantity switcher, while data is loading -
+   so that spot never collapses to zero height (no layout jump) and
+   there's a visible "something is loading here" cue instead of the
+   quantity switcher just vanishing with nothing in its place. */
+.wholesale-qty-skeleton {
+    max-width: 120px;
+    width: 100%;
+    height: -webkit-fill-available;
+    width: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #eee 25%, #ddd 50%, #eee 75%);
+    background-size: 200% 100%;
+    animation: wholesale-shimmer 1.2s ease-in-out infinite;
+}
+
+/* FIX #7: smooth fade+rise transition used whenever a skeleton is
+   swapped out for real content (table, swatches, dropdown). */
+.wholesale-fade-in {
+    animation: wholesale-fade-in 0.28s ease;
+}
+@keyframes wholesale-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* FIX #1: used to hide the theme's native quantity selector the moment
+   the page loads (instead of after the fetch resolves), so it never
+   flashes visible before being swapped for a swatch/dropdown. */
+.wholesale-qty-hidden {
+    display: none !important;
 }
 
 /* Custom Dropdown Styles */
@@ -54,7 +91,7 @@ div#wholesale-pricing-content tbody {
   position: relative;
   width: 100%;
   min-height: 100%;
-  max-width: 120px;
+  max-width:120px;
   cursor: pointer;
   user-select: none;
 }
@@ -142,7 +179,11 @@ div#wholesale-pricing-content tbody {
   background: #555;
 }
 
-/* Swatch Styles */
+/* FIX #8: swatch colors are now themeable via CSS variables, set from
+   widgetConfig in JS (swatchColor, swatchBorderColor, swatchTextColor,
+   swatchHoverColor, swatchHoverBorderColor, swatchActiveColor,
+   swatchActiveBorderColor, swatchActiveTextColor). Falls back to the
+   original hardcoded look if none are set. */
 .wholesale-swatch-container {
   display: flex;
   flex-wrap: wrap;
@@ -152,88 +193,161 @@ div#wholesale-pricing-content tbody {
 
 .wholesale-swatch-button {
   padding: 8px 16px;
-  border: 2px solid #d9d9d9;
+  border: 2px solid var(--wholesale-swatch-border, #d9d9d9);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--wholesale-swatch-bg, #ffffff);
+  color: var(--wholesale-swatch-text, #000000);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  min-width: 50px;
+  min-width: 40px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .wholesale-swatch-button:hover {
-  border-color: #999;
-  background: #f5f5f5;
+  border-color: var(--wholesale-swatch-hover-border, #999999);
+  background: var(--wholesale-swatch-hover-bg, #f5f5f5);
 }
 
 .wholesale-swatch-button.active {
-  border-color: #000000;
-  background: #000000;
-  color: #ffffff;
+  border-color: var(--wholesale-swatch-active-border, #000000);
+  background: var(--wholesale-swatch-active-bg, #000000);
+  color: var(--wholesale-swatch-active-text, #ffffff);
 }
 
 .wholesale-swatch-button.active:hover {
-  background: #333333;
+  background: var(--wholesale-swatch-active-hover-bg, #333333);
 }
 
 /* No rule message styling */
 .wholesale-no-rule-message {
   color: #666;
   font-size: 14px;
-  padding: 10px 0;
 }
 
-/* Hide widget when loading complete but no data */
-.wholesale-pricing-widget.hidden {
-  display: none !important;
+/* Generic swatch/dropdown for no-rule variants */
+.wholesale-generic-control {
+  margin: 5px 0;
 }
 </style>
 
 <script>
-window.wholesaleCustomerTags = {{ customer.tags | json }};
-window.wholesaleCustomerLoggedIn = {% if customer %}true{% else %}false{% endif %};
+window.wholesaleCustomerTags =
+{{ customer.tags | json }};
+
+window.wholesaleCustomerLoggedIn =
+{% if customer %}
+true
+{% else %}
+false
+{% endif %};
+
+/* FIX #3/#4: full list of this product's variant IDs, rendered server-side.
+   Used to (a) correctly detect whether this is a genuine single-variant
+   product, and (b) pre-fetch every variant's rule so we can pick one
+   consistent swatch/dropdown mode for the whole product. */
+window.wholesaleProductVariantIds =
+{{ product.variants | map: 'id' | json }};
 </script>
 
 <script defer>
 document.addEventListener("DOMContentLoaded", async () => {
-  const productId = window.ShopifyAnalytics?.meta?.product?.id;
-  let variantId = document.querySelector('[name="id"]')?.value;
-  
-  if (!productId) {
-    document.querySelector('.wholesale-pricing-widget')?.classList.add('hidden');
-    return;
-  }
 
-  const container = document.getElementById("wholesale-pricing-content");
-  const regularPrice = document.querySelector(".price-item--regular");
-  const originalPriceText = regularPrice?.textContent;
+  const productId = window.ShopifyAnalytics?.meta?.product?.id;
   const qtyInput = document.querySelector('input[name="quantity"]');
+  const container = document.getElementById("wholesale-pricing-content");
   const heading = document.getElementById("wholesale-widget-heading");
   const widget = document.querySelector(".wholesale-pricing-widget");
+  // FIX #6: scope these so we never touch the struck-through "compare at"
+  // price. Shopify renders TWO elements with class "price-item--regular"
+  // when a product is on sale - the real regular price (inside
+  // .price__regular) and the struck-through original price (inside
+  // .price__sale, wrapped in <s>). We only ever want the first one.
+  const regularPriceEl = document.querySelector(".price__regular .price-item--regular")
+                       || document.querySelector(".price-item--regular");
+  const salePriceEl = document.querySelector(".price__sale .price-item--sale");
+  const originalRegularText = regularPriceEl?.textContent;
+  const originalSaleText = salePriceEl?.textContent;
+
+  if (!productId || !qtyInput || !container || !widget) return;
+
+  let widgetConfig = {};
 
   // Default generic values for variants without rules
-  const DEFAULT_SWATCH_VALUES = [1, 5, 10, 20, 25, 50, 75, 100];
-  
-  // Track current state
-  let currentData = null;
-  let currentVariantId = variantId;
-  let isSwatchMode = false; // Global mode for all variants
-  
-  // Show loading state
-  function showLoading() {
-    container.innerHTML = '<div class="wholesale-loading">Loading...</div>';
-  }
+  const DEFAULT_SWATCH_VALUES = [5, 10, 20, 25, 50, 75, 100];
+  const DEFAULT_DROPDOWN_VALUES = [5, 10, 20, 25, 50, 75, 100];
 
-  // Finds the wrapper element around the theme's quantity input
+  // Finds the wrapper element around the theme's quantity input.
   function getQtyWrapper(input) {
-    const known = input.closest('.product-form__quantity') || input.closest('.quantity');
+    const known =
+      input.closest('.product-form__quantity') ||
+      input.closest('.quantity');
     if (known) return known;
     return input.parentElement || input;
   }
 
-  // Creates a custom dropdown
+  // FIX #1: class-based show/hide (instead of inline style) so the native
+  // quantity selector can be hidden synchronously, before any fetch runs.
+  function hideQtyWrapper(input) {
+    getQtyWrapper(input).classList.add('wholesale-qty-hidden');
+  }
+  function showQtyWrapper(input) {
+    getQtyWrapper(input).classList.remove('wholesale-qty-hidden');
+  }
+
+  // FIX #7: shows a shimmering placeholder exactly where the swatch/
+  // dropdown will land (right after the native quantity switcher),
+  // while data is still loading, so nothing collapses to zero height.
+  function showQtySkeleton() {
+    removeQtySkeleton();
+    const wrapper = getQtyWrapper(qtyInput);
+    const skeleton = document.createElement('div');
+    skeleton.className = 'wholesale-qty-skeleton';
+    skeleton.id = 'wholesale-qty-skeleton';
+    wrapper.insertAdjacentElement('afterend', skeleton);
+  }
+  function removeQtySkeleton() {
+    document.getElementById('wholesale-qty-skeleton')?.remove();
+  }
+
+  // FIX #7: retriggers the fade+rise animation on an element every time
+  // it's called (forces a reflow so the CSS animation restarts even if
+  // the class was already present from a previous render).
+  function fadeIn(el) {
+    if (!el) return;
+    el.classList.remove('wholesale-fade-in');
+    void el.offsetWidth;
+    el.classList.add('wholesale-fade-in');
+  }
+
+  // FIX #8: pushes the widgetConfig's swatch color settings onto an
+  // element as CSS variables, which the .wholesale-swatch-button rules
+  // read from. Any key left unset in widgetConfig just falls back to
+  // the CSS default, so partially-configured rules still look fine.
+  function applySwatchTheme(el, config) {
+    if (!el) return;
+    const map = {
+      '--wholesale-swatch-bg': config.swatchColor,
+      '--wholesale-swatch-border': config.swatchBorderColor,
+      '--wholesale-swatch-text': config.swatchTextColor,
+      '--wholesale-swatch-hover-bg': config.swatchHoverColor,
+      '--wholesale-swatch-hover-border': config.swatchHoverBorderColor,
+      '--wholesale-swatch-active-bg': config.swatchActiveColor,
+      '--wholesale-swatch-active-border': config.swatchActiveBorderColor,
+      '--wholesale-swatch-active-text': config.swatchActiveTextColor,
+    };
+    Object.entries(map).forEach(([cssVar, value]) => {
+      if (value) {
+        el.style.setProperty(cssVar, value);
+      } else {
+        el.style.removeProperty(cssVar);
+      }
+    });
+  }
+
+  // Creates a custom dropdown (div-based) with the given values
   function createCustomDropdown(values, initialValue, onChangeCallback) {
     const dropdown = document.createElement('div');
     dropdown.className = 'wholesale-custom-dropdown';
@@ -241,15 +355,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const header = document.createElement('div');
     header.className = 'wholesale-dropdown-header';
-    
+
     const selectedText = document.createElement('span');
     selectedText.className = 'selected-value';
     selectedText.textContent = initialValue || values[0] || '1';
-    
+
     const arrow = document.createElement('span');
     arrow.className = 'arrow';
     arrow.innerHTML = '▼';
-    
+
     header.appendChild(selectedText);
     header.appendChild(arrow);
 
@@ -262,27 +376,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (value === (initialValue || values[0])) {
         option.classList.add('selected');
       }
-      option.textContent = value + ' pcs';
+      option.textContent = value;
       option.dataset.value = value;
 
       option.addEventListener('click', () => {
         const selectedValue = option.dataset.value;
-        selectedText.textContent = selectedValue + ' pcs';
-        
+        selectedText.textContent = selectedValue;
+
         optionsContainer.querySelectorAll('.wholesale-dropdown-option').forEach(opt => {
           opt.classList.remove('selected');
         });
         option.classList.add('selected');
-        
+
         optionsContainer.classList.remove('open');
         arrow.classList.remove('open');
-        
+
         qtyInput.value = selectedValue;
         qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
         qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
-        
+
         if (onChangeCallback) onChangeCallback(selectedValue);
-        if (typeof updateWholesalePrice === 'function') updateWholesalePrice();
+
+        if (window.currentSlabs) updateWholesalePrice(window.currentSlabs);
       });
 
       optionsContainer.appendChild(option);
@@ -290,15 +405,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     header.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isOpen = optionsContainer.classList.contains('open');
-      
       document.querySelectorAll('.wholesale-dropdown-options.open').forEach(el => {
         if (el !== optionsContainer) {
           el.classList.remove('open');
           el.parentElement.querySelector('.arrow')?.classList.remove('open');
         }
       });
-      
       optionsContainer.classList.toggle('open');
       arrow.classList.toggle('open');
     });
@@ -312,10 +424,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     dropdown.appendChild(header);
     dropdown.appendChild(optionsContainer);
+
     return dropdown;
   }
 
-  // Creates swatch buttons with "pcs" text
+  // Creates swatch buttons
+  // FIX #2: label now reads "<value> pcs" instead of the bare number.
   function createSwatchButtons(values, initialValue, onChangeCallback) {
     const container = document.createElement('div');
     container.className = 'wholesale-swatch-container';
@@ -327,7 +441,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (value === (initialValue || values[0])) {
         button.classList.add('active');
       }
-      button.textContent = value + ' pcs';
+      button.textContent = `${value} pcs`;
       button.dataset.value = value;
 
       button.addEventListener('click', () => {
@@ -341,7 +455,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
 
         if (onChangeCallback) onChangeCallback(value);
-        if (typeof updateWholesalePrice === 'function') updateWholesalePrice();
+
+        if (window.currentSlabs) updateWholesalePrice(window.currentSlabs);
       });
 
       container.appendChild(button);
@@ -353,14 +468,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   function insertDropdownAtQtyPosition(dropdown, input) {
     const wrapper = getQtyWrapper(input);
     wrapper.insertAdjacentElement("afterend", dropdown);
-    wrapper.style.display = "none";
+    hideQtyWrapper(input);
   }
 
   function insertSwatchAtVariantPosition(swatchContainer) {
-    const variantSelects = document.querySelector('variant-selects') || 
+    const variantSelects = document.querySelector('variant-selects') ||
                           document.querySelector('[class*="variant-selects"]') ||
                           document.querySelector('.product-form__variants');
-    
+
     if (variantSelects) {
       variantSelects.insertBefore(swatchContainer, variantSelects.firstChild);
     } else {
@@ -369,81 +484,54 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  function showQtyWrapper(input) {
-    const wrapper = getQtyWrapper(input);
-    wrapper.style.display = "";
-  }
-
-  function hideQtyWrapper(input) {
-    const wrapper = getQtyWrapper(input);
-    wrapper.style.display = "none";
-  }
-
   function removeExistingControls() {
-    const oldDropdown = document.getElementById("wholesale-qty-dropdown");
-    if (oldDropdown) oldDropdown.remove();
-
-    const oldSwatch = document.getElementById("wholesale-swatch-container");
-    if (oldSwatch) oldSwatch.remove();
+    document.getElementById("wholesale-qty-dropdown")?.remove();
+    document.getElementById("wholesale-swatch-container")?.remove();
   }
 
-  // Determine global mode (swatch or dropdown) based on first rule
-  function determineGlobalMode(rules) {
-    // Check if any rule has swatch enabled
-    const hasSwatch = rules.some(r => r.quantitySwatchEnabled && r.quantitySwatch?.length > 0);
-    // Check if any rule has dropdown enabled
-    const hasDropdown = rules.some(r => r.quantityInputEnabled && r.quantityDropdown?.length > 0);
-    
-    // Prefer swatch if any rule has it
-    if (hasSwatch) return 'swatch';
-    if (hasDropdown) return 'dropdown';
-    return 'default';
-  }
-
-  // Fetch data for a variant
-  async function fetchVariantData(variantId) {
+  async function fetchRule(pid, vid) {
     try {
-      const response = await fetch(`/apps/wholesale?productId=${productId}&variantId=${variantId}`);
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching wholesale data:', error);
-      return null;
+      const res = await fetch(`/apps/wholesale?productId=${pid}&variantId=${vid}`);
+      if (!res.ok) return { rule: null };
+      return await res.json();
+    } catch (err) {
+      console.error("Wholesale pricing fetch failed", err);
+      return { rule: null };
     }
   }
 
-  // Fetch all variants data to determine global mode
-  async function fetchAllVariantsData() {
-    const variantSelect = document.querySelector('[name="id"]');
-    if (!variantSelect || !variantSelect.options) return null;
-    
-    const variantIds = Array.from(variantSelect.options).map(opt => opt.value).filter(v => v);
-    const rules = [];
-    
-    for (const vid of variantIds) {
-      try {
-        const data = await fetchVariantData(vid);
-        if (data?.rule) {
-          rules.push(data.rule);
-        }
-      } catch (e) {
-        console.error('Error fetching variant data:', e);
-      }
-    }
-    
-    return rules;
+  // FIX #3: scan every variant's rule and decide ONE control type for the
+  // whole product. Dropdown wins whenever there's a mix, since that was
+  // the requirement ("if one rule is swatch and another is dropdown,
+  // show dropdown everywhere").
+  function determineGlobalControlMode(rulesMap) {
+    let hasDropdown = false;
+    let hasSwatch = false;
+    rulesMap.forEach((data) => {
+      const rule = data?.rule;
+      if (!rule) return;
+      if (rule.quantityInputEnabled && rule.quantityDropdown?.length) hasDropdown = true;
+      if (rule.quantitySwatchEnabled && rule.quantitySwatch?.length) hasSwatch = true;
+    });
+    if (hasDropdown) return 'dropdown';
+    if (hasSwatch) return 'swatch';
+    return 'swatch'; // default fallback used for the generic no-rule control
   }
 
-  // Render widget for a variant
-  function renderVariantWidget(data, isNoRule = false) {
+  // Renders the widget for a variant, using the pre-computed global
+  // control mode so every variant looks/behaves the same way.
+  function renderVariantWidget(data, isNoRule, globalMode, sharedWidgetConfig) {
     removeExistingControls();
+    removeQtySkeleton();
 
-    if (isNoRule || !data?.rule) {
-      // No rule - show generic swatch with message
+    if (isNoRule || !data.rule) {
       widget.classList.add('no-rule');
-      
+
+      // FIX: hide the heading directly in JS instead of relying only on
+      // the ".no-rule #wholesale-widget-heading" CSS rule, so it never
+      // shows for a no-rule variant, full stop.
       if (heading) {
-        heading.textContent = "Wholesale Pricing";
+        heading.style.display = "none";
       }
 
       container.innerHTML = `
@@ -451,47 +539,55 @@ document.addEventListener("DOMContentLoaded", async () => {
           No wholesale pricing available for this variant.
         </div>
       `;
+      fadeIn(container);
 
-      // Use generic swatch
-      const genericValues = DEFAULT_SWATCH_VALUES;
-      const swatchContainer = createSwatchButtons(genericValues, genericValues[0]);
-      insertSwatchAtVariantPosition(swatchContainer);
-      
-      qtyInput.value = genericValues[0];
-      hideQtyWrapper(qtyInput);
-
-      if (regularPrice && originalPriceText) {
-        regularPrice.textContent = originalPriceText;
+      if (globalMode === 'dropdown') {
+        const values = DEFAULT_DROPDOWN_VALUES;
+        const dropdown = createCustomDropdown(values, values[0]);
+        insertDropdownAtQtyPosition(dropdown, qtyInput);
+        fadeIn(dropdown);
+        qtyInput.value = values[0];
+      } else {
+        const values = DEFAULT_SWATCH_VALUES;
+        const swatchContainer = createSwatchButtons(values, values[0]);
+        insertSwatchAtVariantPosition(swatchContainer);
+        applySwatchTheme(swatchContainer, sharedWidgetConfig || {});
+        fadeIn(swatchContainer);
+        qtyInput.value = values[0];
+        hideQtyWrapper(qtyInput);
       }
 
-      if (widget) {
-        widget.style.display = "";
-        widget.style.backgroundColor = "#ffffff";
-        widget.style.border = "1px solid #d9d9d9";
-        widget.style.padding = "15px";
-        widget.style.borderRadius = "10px";
+      if (regularPriceEl && originalRegularText) {
+        regularPriceEl.textContent = originalRegularText;
+      }
+      if (salePriceEl && originalSaleText) {
+        salePriceEl.textContent = originalSaleText;
       }
 
+      widget.style.display = "";
       return;
     }
 
-    // Has rule
+    // We have a rule for this variant
     widget.classList.remove('no-rule');
+    widget.style.display = "";
 
-    if (widget) {
-      widget.style.display = "";
-    }
+    widgetConfig = data.rule.widgetConfig || {};
 
-    const widgetConfig = data.rule.widgetConfig || {};
-    
+    // FIX: show the heading again (with the rule's own heading text, or
+    // the default) now that we know this variant does have a rule.
     if (heading) {
       heading.textContent = widgetConfig.heading || "Wholesale Pricing";
+      heading.style.display = "";
     }
 
-    // Render pricing table
-    let slabs = data.rule.slabs;
+    const slabs = data.rule.slabs;
     let html = `
-      <table>
+      <table style="
+        width:100%;
+        border-collapse:collapse;
+        border-radius:10px;
+      ">
         <tr>
           <th>Quantity</th>
           <th>Price</th>
@@ -511,40 +607,39 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     html += "</table>";
     container.innerHTML = html;
+    fadeIn(container);
 
-    // Use global mode for consistency
     const swatchValues = data.rule.quantitySwatch || [];
     const dropdownValues = data.rule.quantityDropdown || [];
+    const ruleWantsSwatch = !!(data.rule.quantitySwatchEnabled && swatchValues.length);
+    const ruleWantsDropdown = !!(data.rule.quantityInputEnabled && dropdownValues.length);
 
-    if (isSwatchMode && swatchValues.length > 0) {
-      // Swatch mode
-      const swatchContainer = createSwatchButtons(swatchValues, swatchValues[0]);
-      insertSwatchAtVariantPosition(swatchContainer);
-      qtyInput.value = swatchValues[0];
-      hideQtyWrapper(qtyInput);
-    } else if (!isSwatchMode && dropdownValues.length > 0) {
-      // Dropdown mode
-      const dropdown = createCustomDropdown(dropdownValues, dropdownValues[0]);
-      insertDropdownAtQtyPosition(dropdown, qtyInput);
-      qtyInput.value = dropdownValues[0];
-    } else {
-      // Fallback - show default input
+    if (!ruleWantsSwatch && !ruleWantsDropdown) {
+      // This rule doesn't ask for either control - plain quantity input.
       showQtyWrapper(qtyInput);
+    } else if (globalMode === 'dropdown') {
+      const values = dropdownValues.length ? dropdownValues
+                   : (swatchValues.length ? swatchValues : DEFAULT_DROPDOWN_VALUES);
+      const dropdown = createCustomDropdown(values, values[0]);
+      insertDropdownAtQtyPosition(dropdown, qtyInput);
+      fadeIn(dropdown);
+      qtyInput.value = values[0];
+    } else {
+      const values = swatchValues.length ? swatchValues
+                   : (dropdownValues.length ? dropdownValues : DEFAULT_SWATCH_VALUES);
+      const swatchContainer = createSwatchButtons(values, values[0]);
+      insertSwatchAtVariantPosition(swatchContainer);
+      applySwatchTheme(swatchContainer, widgetConfig);
+      fadeIn(swatchContainer);
+      qtyInput.value = values[0];
+      hideQtyWrapper(qtyInput);
     }
 
-    // Apply widget styling
-    if (widget) {
-      widget.style.backgroundColor = widgetConfig.backgroundColor || "#ffffff";
-      widget.style.border = `1px solid ${widgetConfig.borderColor || "#d9d9d9"}`;
-      widget.style.color = widgetConfig.textColor || "#000000";
-      widget.style.padding = "15px";
-      widget.style.borderRadius = "10px";
-    }
 
-    updateWholesalePrice(slabs);
+
+    updateWholesalePrice(data.rule.slabs);
   }
 
-  // Update wholesale price function
   function updateWholesalePrice(slabsData) {
     const slabs = slabsData || window.currentSlabs;
     if (!slabs) return;
@@ -568,99 +663,124 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     if (!matchedSlab) {
-      if (regularPrice && originalPriceText) {
-        regularPrice.textContent = originalPriceText;
+      // Restore the storefront's own prices exactly as they were -
+      // including the struck-through compare-at price, which the
+      // wholesale widget must never overwrite.
+      if (regularPriceEl && originalRegularText) {
+        regularPriceEl.textContent = originalRegularText;
+      }
+      if (salePriceEl && originalSaleText) {
+        salePriceEl.textContent = originalSaleText;
       }
       return;
     }
 
     document.querySelectorAll("#wholesale-pricing-content tr").forEach((row) => {
       if (Number(row.dataset.min) === matchedSlab.minQty) {
-        const widgetConfig = currentData?.rule?.widgetConfig || {};
         row.style.background = widgetConfig.highlightColor || "#d1fadf";
       }
     });
 
-    const regularPrices = document.querySelectorAll(".price-item--regular");
-    regularPrices.forEach((el) => {
-      el.textContent = `Rs.${matchedSlab.price} PKR`;
-    });
-
-    const salePrice = document.querySelector(".price-item--sale");
-    if (salePrice) {
-      salePrice.textContent = `Rs.${matchedSlab.price} PKR`;
+    // FIX #6: only update whichever element is the *live* price the
+    // shopper actually pays - the sale price if the product is on sale,
+    // otherwise the regular price. The struck-through compare-at price
+    // is intentionally left alone so it keeps showing the real original
+    // price, not the wholesale slab price.
+    if (salePriceEl) {
+      salePriceEl.textContent = `Rs.${matchedSlab.price} PKR`;
+    } else if (regularPriceEl) {
+      regularPriceEl.textContent = `Rs.${matchedSlab.price} PKR`;
     }
   }
 
-  // Main initialization
-  async function init() {
-    // Show loading state
-    showLoading();
-    
-    // Get initial variant
-    const initialVariantId = document.querySelector('[name="id"]')?.value;
-    if (!initialVariantId) {
-      widget?.classList.add('hidden');
-      return;
-    }
+  // FIX #1/#7: hide the native quantity selector immediately, before the
+  // fetch has even started, and drop a shimmering skeleton in its place
+  // so nothing flashes and the layout doesn't jump once real data lands.
+  hideQtyWrapper(qtyInput);
+  showQtySkeleton();
 
-    // Fetch all variants to determine global mode
-    const allRules = await fetchAllVariantsData();
-    const mode = determineGlobalMode(allRules);
-    isSwatchMode = mode === 'swatch';
-    
-    // Fetch current variant data
-    const data = await fetchVariantData(initialVariantId);
-    currentData = data;
-    currentVariantId = initialVariantId;
-    
-    // Render
-    if (!data?.rule) {
-      renderVariantWidget(data, true);
-    } else {
-      renderVariantWidget(data, false);
-      window.currentSlabs = data.rule.slabs;
-    }
+  const variantId = document.querySelector('[name="id"]')?.value;
+  const variantIds = (window.wholesaleProductVariantIds || []).map(String);
+
+  // FIX #3/#4: pre-fetch every variant's rule once, in parallel, and
+  // cache it. This lets us (a) pick one consistent control type across
+  // the whole product, and (b) render instantly on variant switch with
+  // no further network round trip and no layout shift.
+  const ruleCache = new Map();
+  if (variantIds.length > 0) {
+    const results = await Promise.all(
+      variantIds.map((id) => fetchRule(productId, id).then((d) => [id, d]))
+    );
+    results.forEach(([id, d]) => ruleCache.set(id, d));
+  } else if (variantId) {
+    ruleCache.set(String(variantId), await fetchRule(productId, variantId));
   }
 
-  // Handle variant change
+  const globalMode = determineGlobalControlMode(ruleCache);
+
+  // FIX #8: for the generic no-rule swatch (which has no widgetConfig of
+  // its own), borrow the colors from the first rule we find on this
+  // product, so the whole product still looks visually consistent.
+  function getSharedWidgetConfig(rulesMap) {
+    for (const d of rulesMap.values()) {
+      if (d?.rule?.widgetConfig) return d.rule.widgetConfig;
+    }
+    return {};
+  }
+  const sharedWidgetConfig = getSharedWidgetConfig(ruleCache);
+
+  // FIX #5: if NOT ONE variant on this product has a wholesale rule,
+  // hide the widget entirely - don't fall back to the generic swatch/
+  // dropdown at all. The generic fallback only makes sense when the
+  // product has a rule on at least one variant (so switching between a
+  // "has rule" and "no rule" variant makes sense to show).
+  const productHasAnyRule = Array.from(ruleCache.values()).some((d) => d?.rule);
+
+  function getData(vid) {
+    return ruleCache.get(String(vid)) || { rule: null };
+  }
+
+  if (!productHasAnyRule) {
+    widget.style.display = "none";
+    showQtyWrapper(qtyInput);
+    removeQtySkeleton();
+    window.currentSlabs = null;
+    return;
+  }
+
+  const initialData = getData(variantId);
+  window.currentSlabs = initialData.rule ? initialData.rule.slabs : null;
+  renderVariantWidget(initialData, !initialData.rule, globalMode, sharedWidgetConfig);
+
+  // FIX #4: these listeners are now ALWAYS attached, regardless of
+  // whether the initially-selected variant has a rule or not - this is
+  // what was silently broken before.
+  qtyInput.addEventListener("input", () => {
+    if (window.currentSlabs) updateWholesalePrice(window.currentSlabs);
+  });
+
   document.addEventListener("change", async (e) => {
     if (e.target.name !== "id") return;
 
-    const newVariantId = e.target.value;
-    if (newVariantId === currentVariantId) return;
+    const newVariantId = String(e.target.value);
+    let data = ruleCache.get(newVariantId);
 
-    // Show loading
-    showLoading();
-    
-    const data = await fetchVariantData(newVariantId);
-    currentData = data;
-    currentVariantId = newVariantId;
+    if (!data) {
+      // Shouldn't normally happen since we pre-fetch every variant, but
+      // fall back to an on-demand fetch just in case (e.g. a variant
+      // added dynamically after page load).
+      data = await fetchRule(productId, newVariantId);
+      ruleCache.set(newVariantId, data);
+    }
 
-    if (!data?.rule) {
-      renderVariantWidget(data, true);
+    if (!data.rule) {
+      renderVariantWidget(data, true, globalMode, sharedWidgetConfig);
       window.currentSlabs = null;
     } else {
-      renderVariantWidget(data, false);
+      renderVariantWidget(data, false, globalMode, sharedWidgetConfig);
       window.currentSlabs = data.rule.slabs;
     }
   });
-
-  // Add input listener for price update
-  qtyInput?.addEventListener("input", () => {
-    if (window.currentSlabs) {
-      updateWholesalePrice(window.currentSlabs);
-    }
-  });
-
-  // Handle form submit
-  const form = qtyInput?.closest("form");
-  form?.addEventListener("submit", () => {
-    if (qtyInput) qtyInput.value = qtyInput.value;
-  });
-
-  // Start
-  await init();
 });
 </script>
 
