@@ -3,33 +3,58 @@
     Wholesale Pricing
   </h3>
   <div id="wholesale-pricing-content">
-    Loading...
+    <div class="wholesale-loading">Loading...</div>
   </div>
 </div>
 
 <style>
- .wholesale-pricing-widget{
-    margin-block:15px;
+.wholesale-pricing-widget {
+  margin-block: 15px;
+  min-height: 100px; /* Prevent layout shift */
+  transition: all 0.3s ease;
 }
-h3#wholesale-widget-heading{
-    font-size:20px;
+.wholesale-pricing-widget.no-rule #wholesale-widget-heading {
+  display: none;
+}
+h3#wholesale-widget-heading {
+  font-size: 20px;
 }
 div#wholesale-live-price {
-    font-size: 16px !important;
-    margin: 0 !important;
+  font-size: 16px !important;
+  margin: 0 !important;
 }
 div#wholesale-pricing-content table {
-    margin-top: 15px;
+  margin-top: 15px;
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+}
+div#wholesale-pricing-content table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  font-weight: 600;
+}
+div#wholesale-pricing-content table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
 }
 div#wholesale-pricing-content tbody {
-    font-size:14px;
-}  
+  font-size: 14px;
+}
+.wholesale-loading {
+  color: #999;
+  font-size: 14px;
+  padding: 10px 0;
+}
+
 /* Custom Dropdown Styles */
 .wholesale-custom-dropdown {
   position: relative;
   width: 100%;
   min-height: 100%;
-  max-width:120px;
+  max-width: 120px;
   cursor: pointer;
   user-select: none;
 }
@@ -134,7 +159,7 @@ div#wholesale-pricing-content tbody {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  min-width: 40px;
+  min-width: 50px;
   text-align: center;
 }
 
@@ -157,99 +182,63 @@ div#wholesale-pricing-content tbody {
 .wholesale-no-rule-message {
   color: #666;
   font-size: 14px;
+  padding: 10px 0;
 }
 
-/* Generic swatch/dropdown for no-rule variants */
-.wholesale-generic-control {
-  margin: 5px 0;
+/* Hide widget when loading complete but no data */
+.wholesale-pricing-widget.hidden {
+  display: none !important;
 }
 </style>
 
 <script>
-window.wholesaleCustomerTags =
-{{ customer.tags | json }};
-
-window.wholesaleCustomerLoggedIn =
-{% if customer %}
-true
-{% else %}
-false
-{% endif %};
+window.wholesaleCustomerTags = {{ customer.tags | json }};
+window.wholesaleCustomerLoggedIn = {% if customer %}true{% else %}false{% endif %};
 </script>
 
 <script defer>
 document.addEventListener("DOMContentLoaded", async () => {
+  const productId = window.ShopifyAnalytics?.meta?.product?.id;
+  let variantId = document.querySelector('[name="id"]')?.value;
+  
+  if (!productId) {
+    document.querySelector('.wholesale-pricing-widget')?.classList.add('hidden');
+    return;
+  }
 
-  const productId =
-    window.ShopifyAnalytics?.meta?.product?.id;
-
-  let variantId =
-  document.querySelector('[name="id"]')?.value;
-  if (!productId) return;
-
-  const container =
-    document.getElementById(
-      "wholesale-pricing-content"
-    );
-
-
-  const regularPrice =
-      document.querySelector(
-        ".price-item--regular"
-      );
-  const originalPriceText =
-    regularPrice?.textContent;
-  if (!container) return;
-
-  const response = await fetch(
-    `/apps/wholesale?productId=${productId}&variantId=${variantId}`
-  );
-  const qtyInput =
-  document.querySelector(
-    'input[name="quantity"]'
-  );
-
-  if (!qtyInput) return;
-  const data = await response.json();
-  const rule = data.rule;
-  const widgetConfig =
-    rule?.widgetConfig || {};
-  const heading =
-    document.getElementById(
-      "wholesale-widget-heading"
-    );
-
+  const container = document.getElementById("wholesale-pricing-content");
+  const regularPrice = document.querySelector(".price-item--regular");
+  const originalPriceText = regularPrice?.textContent;
+  const qtyInput = document.querySelector('input[name="quantity"]');
+  const heading = document.getElementById("wholesale-widget-heading");
   const widget = document.querySelector(".wholesale-pricing-widget");
 
   // Default generic values for variants without rules
   const DEFAULT_SWATCH_VALUES = [1, 5, 10, 20, 25, 50, 75, 100];
-  const DEFAULT_DROPDOWN_VALUES = [1, 5, 10, 20, 25, 50, 75, 100];
+  
+  // Track current state
+  let currentData = null;
+  let currentVariantId = variantId;
+  let isSwatchMode = false; // Global mode for all variants
+  
+  // Show loading state
+  function showLoading() {
+    container.innerHTML = '<div class="wholesale-loading">Loading...</div>';
+  }
 
-  // Store current swatch/dropdown values globally for this variant
-  let currentSwatchValues = null;
-  let currentDropdownValues = null;
-  let isSwatchMode = false;
-
-  // Finds the wrapper element around the theme's quantity input.
-  // Falls back to the input's immediate parent if no known
-  // Shopify theme class is found, so this works across themes
-  // without needing to know the exact wrapper class name.
+  // Finds the wrapper element around the theme's quantity input
   function getQtyWrapper(input) {
-    const known =
-      input.closest('.product-form__quantity') ||
-      input.closest('.quantity');
+    const known = input.closest('.product-form__quantity') || input.closest('.quantity');
     if (known) return known;
     return input.parentElement || input;
   }
 
-  // Creates a custom dropdown (div-based) with the given values
+  // Creates a custom dropdown
   function createCustomDropdown(values, initialValue, onChangeCallback) {
-    // Create dropdown container
     const dropdown = document.createElement('div');
     dropdown.className = 'wholesale-custom-dropdown';
     dropdown.id = 'wholesale-qty-dropdown';
 
-    // Create header
     const header = document.createElement('div');
     header.className = 'wholesale-dropdown-header';
     
@@ -264,60 +253,45 @@ document.addEventListener("DOMContentLoaded", async () => {
     header.appendChild(selectedText);
     header.appendChild(arrow);
 
-    // Create options container
     const optionsContainer = document.createElement('div');
     optionsContainer.className = 'wholesale-dropdown-options';
 
-    // Add options
     values.forEach((value) => {
       const option = document.createElement('div');
       option.className = 'wholesale-dropdown-option';
       if (value === (initialValue || values[0])) {
         option.classList.add('selected');
       }
-      option.textContent = value;
+      option.textContent = value + ' pcs';
       option.dataset.value = value;
 
       option.addEventListener('click', () => {
-        // Update selected value
         const selectedValue = option.dataset.value;
-        selectedText.textContent = selectedValue;
+        selectedText.textContent = selectedValue + ' pcs';
         
-        // Update selected class
         optionsContainer.querySelectorAll('.wholesale-dropdown-option').forEach(opt => {
           opt.classList.remove('selected');
         });
         option.classList.add('selected');
         
-        // Close dropdown
         optionsContainer.classList.remove('open');
         arrow.classList.remove('open');
         
-        // Update quantity input
         qtyInput.value = selectedValue;
         qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
         qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
         
-        // Call callback if provided
-        if (onChangeCallback) {
-          onChangeCallback(selectedValue);
-        }
-        
-        // Trigger price update
-        if (typeof updateWholesalePrice === 'function') {
-          updateWholesalePrice();
-        }
+        if (onChangeCallback) onChangeCallback(selectedValue);
+        if (typeof updateWholesalePrice === 'function') updateWholesalePrice();
       });
 
       optionsContainer.appendChild(option);
     });
 
-    // Toggle dropdown on header click
     header.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = optionsContainer.classList.contains('open');
       
-      // Close all other dropdowns
       document.querySelectorAll('.wholesale-dropdown-options.open').forEach(el => {
         if (el !== optionsContainer) {
           el.classList.remove('open');
@@ -329,7 +303,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       arrow.classList.toggle('open');
     });
 
-    // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!dropdown.contains(e.target)) {
         optionsContainer.classList.remove('open');
@@ -339,11 +312,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     dropdown.appendChild(header);
     dropdown.appendChild(optionsContainer);
-
     return dropdown;
   }
 
-  // Creates swatch buttons
+  // Creates swatch buttons with "pcs" text
   function createSwatchButtons(values, initialValue, onChangeCallback) {
     const container = document.createElement('div');
     container.className = 'wholesale-swatch-container';
@@ -355,30 +327,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (value === (initialValue || values[0])) {
         button.classList.add('active');
       }
-      button.textContent = value;
+      button.textContent = value + ' pcs';
       button.dataset.value = value;
 
       button.addEventListener('click', () => {
-        // Update active state
         container.querySelectorAll('.wholesale-swatch-button').forEach(btn => {
           btn.classList.remove('active');
         });
         button.classList.add('active');
 
-        // Update quantity input
         qtyInput.value = value;
         qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
         qtyInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Call callback if provided
-        if (onChangeCallback) {
-          onChangeCallback(value);
-        }
-
-        // Trigger price update
-        if (typeof updateWholesalePrice === 'function') {
-          updateWholesalePrice();
-        }
+        if (onChangeCallback) onChangeCallback(value);
+        if (typeof updateWholesalePrice === 'function') updateWholesalePrice();
       });
 
       container.appendChild(button);
@@ -387,113 +350,140 @@ document.addEventListener("DOMContentLoaded", async () => {
     return container;
   }
 
-  // Inserts the dropdown right where the theme's quantity
-  // switcher is, and hides the original switcher — so visually
-  // the dropdown *replaces* it instead of appearing elsewhere.
   function insertDropdownAtQtyPosition(dropdown, input) {
     const wrapper = getQtyWrapper(input);
     wrapper.insertAdjacentElement("afterend", dropdown);
     wrapper.style.display = "none";
   }
 
-  // Inserts swatch buttons at the top of variant-selects wrapper
   function insertSwatchAtVariantPosition(swatchContainer) {
-    // Find the variant-selects wrapper
     const variantSelects = document.querySelector('variant-selects') || 
                           document.querySelector('[class*="variant-selects"]') ||
                           document.querySelector('.product-form__variants');
     
     if (variantSelects) {
-      // Insert as first child
       variantSelects.insertBefore(swatchContainer, variantSelects.firstChild);
     } else {
-      // Fallback: insert before the quantity wrapper
       const wrapper = getQtyWrapper(qtyInput);
       wrapper.parentElement.insertBefore(swatchContainer, wrapper);
     }
   }
 
-  // Restores the theme's original quantity switcher
   function showQtyWrapper(input) {
     const wrapper = getQtyWrapper(input);
     wrapper.style.display = "";
   }
 
-  // Hides the theme's original quantity switcher
   function hideQtyWrapper(input) {
     const wrapper = getQtyWrapper(input);
     wrapper.style.display = "none";
   }
 
-  // Removes any existing swatch or dropdown from DOM
   function removeExistingControls() {
     const oldDropdown = document.getElementById("wholesale-qty-dropdown");
-    if (oldDropdown) {
-      oldDropdown.remove();
-    }
+    if (oldDropdown) oldDropdown.remove();
 
     const oldSwatch = document.getElementById("wholesale-swatch-container");
-    if (oldSwatch) {
-      oldSwatch.remove();
+    if (oldSwatch) oldSwatch.remove();
+  }
+
+  // Determine global mode (swatch or dropdown) based on first rule
+  function determineGlobalMode(rules) {
+    // Check if any rule has swatch enabled
+    const hasSwatch = rules.some(r => r.quantitySwatchEnabled && r.quantitySwatch?.length > 0);
+    // Check if any rule has dropdown enabled
+    const hasDropdown = rules.some(r => r.quantityInputEnabled && r.quantityDropdown?.length > 0);
+    
+    // Prefer swatch if any rule has it
+    if (hasSwatch) return 'swatch';
+    if (hasDropdown) return 'dropdown';
+    return 'default';
+  }
+
+  // Fetch data for a variant
+  async function fetchVariantData(variantId) {
+    try {
+      const response = await fetch(`/apps/wholesale?productId=${productId}&variantId=${variantId}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching wholesale data:', error);
+      return null;
     }
   }
 
-  // Renders the widget for a variant
+  // Fetch all variants data to determine global mode
+  async function fetchAllVariantsData() {
+    const variantSelect = document.querySelector('[name="id"]');
+    if (!variantSelect || !variantSelect.options) return null;
+    
+    const variantIds = Array.from(variantSelect.options).map(opt => opt.value).filter(v => v);
+    const rules = [];
+    
+    for (const vid of variantIds) {
+      try {
+        const data = await fetchVariantData(vid);
+        if (data?.rule) {
+          rules.push(data.rule);
+        }
+      } catch (e) {
+        console.error('Error fetching variant data:', e);
+      }
+    }
+    
+    return rules;
+  }
+
+  // Render widget for a variant
   function renderVariantWidget(data, isNoRule = false) {
-    // Remove any existing controls first
     removeExistingControls();
 
-    if (isNoRule || !data.rule) {
-      // No rule - show generic swatch + message
+    if (isNoRule || !data?.rule) {
+      // No rule - show generic swatch with message
       widget.classList.add('no-rule');
       
-      // Show message with generic swatch
+      if (heading) {
+        heading.textContent = "Wholesale Pricing";
+      }
+
       container.innerHTML = `
         <div class="wholesale-no-rule-message">
           No wholesale pricing available for this variant.
         </div>
       `;
 
-      // Use generic swatch (default to swatch mode for no-rule variants)
+      // Use generic swatch
       const genericValues = DEFAULT_SWATCH_VALUES;
-      
-      // Create generic swatch
-      const swatchContainer = createSwatchButtons(
-        genericValues,
-        genericValues[0]
-      );
-      
-      // Insert swatch at variant position
+      const swatchContainer = createSwatchButtons(genericValues, genericValues[0]);
       insertSwatchAtVariantPosition(swatchContainer);
       
-      // Set initial quantity
       qtyInput.value = genericValues[0];
-      
-      // HIDE the default quantity switcher
       hideQtyWrapper(qtyInput);
 
-      // Reset price
       if (regularPrice && originalPriceText) {
         regularPrice.textContent = originalPriceText;
       }
 
-      // Ensure widget is visible
       if (widget) {
         widget.style.display = "";
+        widget.style.backgroundColor = "#ffffff";
+        widget.style.border = "1px solid #d9d9d9";
+        widget.style.padding = "15px";
+        widget.style.borderRadius = "10px";
       }
 
       return;
     }
 
-    // We have a rule - show rule-specific controls
+    // Has rule
     widget.classList.remove('no-rule');
 
-    // If we have a rule, show the widget
     if (widget) {
       widget.style.display = "";
     }
 
-    // Update heading
+    const widgetConfig = data.rule.widgetConfig || {};
+    
     if (heading) {
       heading.textContent = widgetConfig.heading || "Wholesale Pricing";
     }
@@ -501,10 +491,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Render pricing table
     let slabs = data.rule.slabs;
     let html = `
-      <table style="
-        width:100%;
-        border-collapse:collapse;
-      ">
+      <table>
         <tr>
           <th>Quantity</th>
           <th>Price</th>
@@ -525,43 +512,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     html += "</table>";
     container.innerHTML = html;
 
-    // Store current values
-    currentSwatchValues = data.rule.quantitySwatch || [];
-    currentDropdownValues = data.rule.quantityDropdown || [];
+    // Use global mode for consistency
+    const swatchValues = data.rule.quantitySwatch || [];
+    const dropdownValues = data.rule.quantityDropdown || [];
 
-    // Check if swatch is enabled for THIS SPECIFIC RULE
-    if (data.rule.quantitySwatchEnabled && currentSwatchValues.length > 0) {
-      isSwatchMode = true;
-      // Create swatch buttons using this rule's specific swatch values
-      const swatchContainer = createSwatchButtons(
-        currentSwatchValues,
-        currentSwatchValues[0]
-      );
-
-      // Insert swatch at variant position
+    if (isSwatchMode && swatchValues.length > 0) {
+      // Swatch mode
+      const swatchContainer = createSwatchButtons(swatchValues, swatchValues[0]);
       insertSwatchAtVariantPosition(swatchContainer);
-
-      // Set initial quantity
-      qtyInput.value = currentSwatchValues[0];
-
-      // HIDE the default quantity switcher
+      qtyInput.value = swatchValues[0];
       hideQtyWrapper(qtyInput);
-
-    } else if (data.rule.quantityInputEnabled && currentDropdownValues.length > 0) {
-      isSwatchMode = false;
-      // Dropdown mode using this rule's specific dropdown values
-      const dropdown = createCustomDropdown(
-        currentDropdownValues,
-        currentDropdownValues[0]
-      );
-
+    } else if (!isSwatchMode && dropdownValues.length > 0) {
+      // Dropdown mode
+      const dropdown = createCustomDropdown(dropdownValues, dropdownValues[0]);
       insertDropdownAtQtyPosition(dropdown, qtyInput);
-
-      qtyInput.value = currentDropdownValues[0];
-
+      qtyInput.value = dropdownValues[0];
     } else {
-      // Show quantity input if no dropdown in rule
-      isSwatchMode = false;
+      // Fallback - show default input
       showQtyWrapper(qtyInput);
     }
 
@@ -571,10 +538,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       widget.style.border = `1px solid ${widgetConfig.borderColor || "#d9d9d9"}`;
       widget.style.color = widgetConfig.textColor || "#000000";
       widget.style.padding = "15px";
+      widget.style.borderRadius = "10px";
     }
 
-    // Update price
-    updateWholesalePrice(data.rule.slabs);
+    updateWholesalePrice(slabs);
   }
 
   // Update wholesale price function
@@ -609,6 +576,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.querySelectorAll("#wholesale-pricing-content tr").forEach((row) => {
       if (Number(row.dataset.min) === matchedSlab.minQty) {
+        const widgetConfig = currentData?.rule?.widgetConfig || {};
         row.style.background = widgetConfig.highlightColor || "#d1fadf";
       }
     });
@@ -624,55 +592,52 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Check if this is a simple product (no variants) OR first load
-  const isSimpleProduct = !document.querySelector('[name="id"]')?.options;
-
-  // For simple products with no rule, hide the entire widget
-  if (isSimpleProduct && !data.rule) {
-    if (widget) {
-      widget.style.display = "none";
+  // Main initialization
+  async function init() {
+    // Show loading state
+    showLoading();
+    
+    // Get initial variant
+    const initialVariantId = document.querySelector('[name="id"]')?.value;
+    if (!initialVariantId) {
+      widget?.classList.add('hidden');
+      return;
     }
-    return;
-  }
 
-  // For simple products with rule, show normally
-  if (isSimpleProduct && data.rule) {
-    if (widget) {
-      widget.style.display = "";
+    // Fetch all variants to determine global mode
+    const allRules = await fetchAllVariantsData();
+    const mode = determineGlobalMode(allRules);
+    isSwatchMode = mode === 'swatch';
+    
+    // Fetch current variant data
+    const data = await fetchVariantData(initialVariantId);
+    currentData = data;
+    currentVariantId = initialVariantId;
+    
+    // Render
+    if (!data?.rule) {
+      renderVariantWidget(data, true);
+    } else {
+      renderVariantWidget(data, false);
+      window.currentSlabs = data.rule.slabs;
     }
   }
-
-  // Initial render
-  if (!data.rule) {
-    renderVariantWidget(data, true);
-  } else {
-    renderVariantWidget(data, false);
-    // Store slabs for price update
-    window.currentSlabs = data.rule.slabs;
-  }
-
-  // Add input listener for price update
-  qtyInput.addEventListener("input", () => {
-    if (window.currentSlabs) {
-      updateWholesalePrice(window.currentSlabs);
-    }
-  });
 
   // Handle variant change
   document.addEventListener("change", async (e) => {
     if (e.target.name !== "id") return;
 
     const newVariantId = e.target.value;
+    if (newVariantId === currentVariantId) return;
 
-    const response = await fetch(
-      `/apps/wholesale?productId=${productId}&variantId=${newVariantId}`
-    );
+    // Show loading
+    showLoading();
+    
+    const data = await fetchVariantData(newVariantId);
+    currentData = data;
+    currentVariantId = newVariantId;
 
-    const data = await response.json();
-
-    console.log("Variant Changed", data);
-
-    if (!data.rule) {
+    if (!data?.rule) {
       renderVariantWidget(data, true);
       window.currentSlabs = null;
     } else {
@@ -681,14 +646,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  function getQtyInput() {
-    return document.querySelector('input[name="quantity"]');
-  }   
-  const form = qtyInput?.closest("form");
+  // Add input listener for price update
+  qtyInput?.addEventListener("input", () => {
+    if (window.currentSlabs) {
+      updateWholesalePrice(window.currentSlabs);
+    }
+  });
 
+  // Handle form submit
+  const form = qtyInput?.closest("form");
   form?.addEventListener("submit", () => {
-    qtyInput.value = qtyInput.value;
-  });  
+    if (qtyInput) qtyInput.value = qtyInput.value;
+  });
+
+  // Start
+  await init();
 });
 </script>
 
