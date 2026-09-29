@@ -1,25 +1,22 @@
-import { useLoaderData } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import prisma from "../../prisma/db.server";
 import {
   Page,
   Layout,
   Card,
   Button,
-  TextField,
-  Checkbox,
   BlockStack,
+  InlineStack,
   Text,
-  List,
+  IndexTable,
 } from "@shopify/polaris";
 
-import { useEffect, useState } from "react";
 export async function loader() {
   const rules = await prisma.wholesaleRule.findMany({
     include: {
       slabs: true,
       products: true,
     },
-
     orderBy: {
       createdAt: "desc",
     },
@@ -27,374 +24,183 @@ export async function loader() {
 
   return { rules };
 }
+
 export default function Index() {
   const { rules } = useLoaderData();
+  const navigate = useNavigate();
 
-  const [name, setName] = useState("");
-  const [enabled, setEnabled] = useState(true);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [slabs, setSlabs] = useState([
-    {
-      minQty: "",
-      maxQty: "",
-      price: "",
-    },
-  ]);
-   
-  const [editingRuleId, setEditingRuleId] =
-    useState(null);
+  const activeRules = rules.filter((rule) => rule.enabled).length;
 
-  const [editName, setEditName] =
-    useState("");
+  const totalProducts = rules.reduce(
+    (total, rule) => total + rule.products.length,
+    0
+  );
 
-  const [editEnabled, setEditEnabled] =
-    useState(true);
+  const totalSlabs = rules.reduce(
+    (total, rule) => total + rule.slabs.length,
+    0
+  );
 
+  const recentRules = rules.slice(0, 5);
 
-  async function openProductPicker() {
-    const selection = await window.shopify.resourcePicker({
-      type: "product",
-      multiple: true,
-    });
-
-    if (!selection) return;
-
-    setSelectedProducts(selection);
-  }
-  function addSlab() {
-    setSlabs([
-      ...slabs,
-      {
-        minQty: "",
-        maxQty: "",
-        price: "",
-      },
-    ]);
-  }
-  function removeSlab(index) {
-    const updated = [...slabs];
-
-    updated.splice(index, 1);
-
-    setSlabs(updated);
-  }
-  function updateSlab(index, field, value) {
-    const updated = [...slabs];
-
-    updated[index][field] = value;
-
-    setSlabs(updated);
-  }
-  async function createRule() {
-    const payload = {
-      name,
-      enabled,
-      shopDomain: "muhammadreh-dev.myshopify.com",
-      slabs,
-
-      productIds: selectedProducts.map(
-        (p) => p.id.split("/").pop()
-      ),
-    };
-
-    const res = await fetch("/api/wholesale-rules", {
-      method: "POST",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      alert("Rule Created");
-
-      setName("");
-
-      setSelectedProducts([]);
-
-      window.location.href = window.location.href;
-    }
-  }
-  function startEdit(rule) {
-    setEditingRuleId(rule.id);
-
-    setEditName(rule.name);
-
-    setEditEnabled(rule.enabled);
-  }
-  async function saveEdit() {
-    await fetch("/api/wholesale-rules", {
-      method: "PUT",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify({
-        id: editingRuleId,
-        name: editName,
-        enabled: editEnabled,
-      }),
-    });
-
-    setEditingRuleId(null);
-
-    loadRules();
-  }  
   return (
-    <Page title="Wholesale Pricing Rules">
+    <Page title="Wholesale Pricing">
       <Layout>
+        {/* Stats */}
+        <Layout.Section>
+          <InlineStack gap="400" wrap>
+            <div style={{ flex: "1 1 220px" }}>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    Total Rules
+                  </Text>
+
+                  <Text as="p" variant="headingXl">
+                    {rules.length}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
+
+            <div style={{ flex: "1 1 220px" }}>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    Active Rules
+                  </Text>
+
+                  <Text as="p" variant="headingXl">
+                    {activeRules}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
+
+            <div style={{ flex: "1 1 220px" }}>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    Products Assigned
+                  </Text>
+
+                  <Text as="p" variant="headingXl">
+                    {totalProducts}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
+
+            <div style={{ flex: "1 1 220px" }}>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    Pricing Slabs
+                  </Text>
+
+                  <Text as="p" variant="headingXl">
+                    {totalSlabs}
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
+          </InlineStack>
+        </Layout.Section>
+
+        {/* Quick Actions */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-
               <Text variant="headingMd" as="h2">
-                Create Wholesale Rule
+                Quick Actions
               </Text>
 
-              <TextField
-                label="Rule Name"
-                value={name}
-                onChange={setName}
-                autoComplete="off"
-              />
-
-              <Checkbox
-                label="Enabled"
-                checked={enabled}
-                onChange={setEnabled}
-              />
-
-              <Button onClick={openProductPicker}>
-                Select Products
-              </Button>
-
-              {selectedProducts.length > 0 && (
-                <Card background="bg-surface-secondary">
-                  <BlockStack gap="200">
-
-                    <Text fontWeight="bold">
-                      Selected Products
-                    </Text>
-
-                    <List>
-                      {selectedProducts.map((product) => (
-                        <List.Item key={product.id}>
-                          {product.title}
-                        </List.Item>
-                      ))}
-                    </List>
-
-                  </BlockStack>
-                </Card>
-              )}
-
-              <BlockStack gap="300">
-
-                <Text variant="headingMd" as="h3">
-                  Pricing Slabs
-                </Text>
-
-                {slabs.map((slab, index) => (
-                  <Card key={index} background="bg-surface-secondary">
-
-                    <BlockStack gap="200">
-
-                      <TextField
-                        label="Min Quantity"
-                        type="number"
-                        value={String(slab.minQty)}
-                        onChange={(value) =>
-                          updateSlab(index, "minQty", value)
-                        }
-                        autoComplete="off"
-                      />
-
-                      <TextField
-                        label="Max Quantity"
-                        type="number"
-                        value={slab.maxQty?.toString() || ""}
-                        onChange={(value) =>
-                          updateSlab(index, "maxQty", value)
-                        }
-                        autoComplete="off"
-                      />
-
-                      <TextField
-                        label="Price Per Unit"
-                        type="number"
-                        value={String(slab.price)}
-                        onChange={(value) =>
-                          updateSlab(index, "price", value)
-                        }
-                        autoComplete="off"
-                      />
-
-                    </BlockStack>
-                  </Card>
-                ))}
-
-                <Button onClick={addSlab}>
-                  Add Pricing Tier
+              <InlineStack gap="300">
+                <Button
+                  variant="primary"
+                  onClick={() => navigate("/app/rules/new")}
+                >
+                  Create Rule
                 </Button>
 
-              </BlockStack>
-              <Text variant="headingMd" as="h3">
-                Pricing Slabs
-              </Text>
-
-              {slabs.map((slab, index) => (
-                <Card key={index}>
-                  <BlockStack gap="200">
-
-                    <TextField
-                      label="Min Quantity"
-                      type="number"
-                      value={slab.minQty}
-                      onChange={(value) =>
-                        updateSlab(index, "minQty", value)
-                      }
-                      autoComplete="off"
-                    />
-
-                    <TextField
-                      label="Max Quantity"
-                      type="number"
-                      value={slab.maxQty}
-                      onChange={(value) =>
-                        updateSlab(index, "maxQty", value)
-                      }
-                      autoComplete="off"
-                    />
-
-                    <TextField
-                      label="Price"
-                      type="number"
-                      value={slab.price}
-                      onChange={(value) =>
-                        updateSlab(index, "price", value)
-                      }
-                      autoComplete="off"
-                    />
-
-                    <Button
-                      tone="critical"
-                      onClick={() => removeSlab(index)}
-                    >
-                      Remove Slab
-                    </Button>
-
-                  </BlockStack>
-                </Card>
-              ))}
-              <Button onClick={addSlab}>
-                Add Pricing Slab
-              </Button>              
-              <Button variant="primary" onClick={createRule}>
-                Save Rule
-              </Button>
+                <Button onClick={() => navigate("/app/rules")}>
+                  View All Rules
+                </Button>
+              </InlineStack>
             </BlockStack>
           </Card>
         </Layout.Section>
 
+        {/* Recent Rules */}
         <Layout.Section>
-          <Card>
-            <BlockStack gap="300">
+          <Card padding="0">
+            <BlockStack gap="400">
+              <div style={{ padding: "20px 20px 0" }}>
+                <Text variant="headingMd" as="h2">
+                  Recent Rules
+                </Text>
+              </div>
 
-              <Text variant="headingMd" as="h2">
-                Existing Rules
-              </Text>
-
-              {rules.map((rule) => (
-                <Card key={rule.id}>
-                  <BlockStack gap="200">
-
-                    {editingRuleId === rule.id ? (
-                      <TextField
-                        label="Rule Name"
-                        value={editName}
-                        onChange={setEditName}
-                        autoComplete="off"
-                      />
-                    ) : (
-                      <Text fontWeight="bold">
-                        {rule.name}
-                      </Text>
-                    )}
-
-                    {editingRuleId === rule.id ? (
-                      <Checkbox
-                        label="Enabled"
-                        checked={editEnabled}
-                        onChange={setEditEnabled}
-                      />
-                    ) : (
-                      <Text>
-                        Enabled: {rule.enabled ? "Yes" : "No"}
-                      </Text>
-                    )}
-
-                    <Text>
-                      Products Attached:
-                    </Text>
-
-                    <List>
-                      {rule.products.map((p) => (
-                        <List.Item key={p.id}>
-                          Product ID: {p.productId}
-                        </List.Item>
-                      ))}
-                    </List>
-                    <Text fontWeight="bold">
-                      Pricing Slabs:
-                    </Text>
-
-                    <List>
-                      {rule.slabs.map((slab) => (
-                        <List.Item key={slab.id}>
-                          Qty {slab.minQty}
-                          {slab.maxQty
-                            ? ` - ${slab.maxQty}`
-                            : "+"}
-                          : Rs {slab.price}
-                        </List.Item>
-                      ))}
-                    </List>  
-                    <Button
-                      onClick={() => startEdit(rule)}
+              {recentRules.length > 0 ? (
+                <IndexTable
+                  resourceName={{
+                    singular: "rule",
+                    plural: "rules",
+                  }}
+                  itemCount={recentRules.length}
+                  headings={[
+                    { title: "Name" },
+                    { title: "Status" },
+                    { title: "Products" },
+                    { title: "Slabs" },
+                  ]}
+                  selectable={false}
+                >
+                  {recentRules.map((rule, index) => (
+                    <IndexTable.Row
+                      id={rule.id}
+                      key={rule.id}
+                      position={index}
+                      onClick={() => navigate(`/app/rules/${rule.id}`)}
                     >
-                      Edit Rule
-                    </Button>
-                    {editingRuleId === rule.id && (
+                      <IndexTable.Cell>
+                        <Text as="span" fontWeight="semibold">
+                          {rule.name}
+                        </Text>
+                      </IndexTable.Cell>
+
+                      <IndexTable.Cell>
+                        {rule.enabled ? "Enabled" : "Disabled"}
+                      </IndexTable.Cell>
+
+                      <IndexTable.Cell>
+                        {rule.products.length}
+                      </IndexTable.Cell>
+
+                      <IndexTable.Cell>
+                        {rule.slabs.length}
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
+                  ))}
+                </IndexTable>
+              ) : (
+                <div style={{ padding: "20px" }}>
+                  <BlockStack gap="300">
+                    <Text as="p">
+                      No wholesale rules have been created yet.
+                    </Text>
+
+                    <InlineStack>
                       <Button
                         variant="primary"
-                        onClick={saveEdit}
+                        onClick={() => navigate("/app/rules/new")}
                       >
-                        Save Changes
+                        Create Your First Rule
                       </Button>
-                    )}                                        
-                    <Button
-                      tone="critical"
-                      onClick={async () => {
-                        await fetch("/api/wholesale-rules", {
-                          method: "DELETE",
-                          headers: {
-                            "Content-Type": "application/json",
-                          },
-                          body: JSON.stringify({ id: rule.id }),
-                        });
-
-                        loadRules();
-                      }}
-                    >
-                      Delete Rule
-                    </Button>                                         
-                  </BlockStack>                                     
-                </Card>
-            
-              ))}
+                    </InlineStack>
+                  </BlockStack>
+                </div>
+              )}
             </BlockStack>
           </Card>
         </Layout.Section>
